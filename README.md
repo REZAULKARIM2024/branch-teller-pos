@@ -21,6 +21,11 @@ back-office workflows fit together — not a toy CRUD app.
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![License](https://img.shields.io/badge/License-Demo%2FInternal-lightgrey)
 
+**A 30-second look at the app** — logging in, looking up an account, posting a deposit,
+and the double-entry General Ledger updating live:
+
+![Branch Teller demo](docs/screenshots/demo.gif)
+
 ## Table of Contents
 
 - [Overview](#overview)

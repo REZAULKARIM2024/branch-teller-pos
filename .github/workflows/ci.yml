@@ -58,10 +58,26 @@ jobs:
       # community actions just for trend charts.)
       - name: Build Allure report
         if: always()
-        run: mvn -q io.qameta.allure:allure-maven:2.15.2:report
+        continue-on-error: true
+        run: mvn -B io.qameta.allure:allure-maven:2.15.2:report
+
+      # Guards the publish step below: peaceiris/actions-gh-pages fails with a confusing
+      # "src refspec gh-pages does not match any" error if publish_dir doesn't exist or
+      # is empty (nothing to commit), instead of a clear message -- so check first and
+      # surface a real warning if the report step above didn't actually produce anything.
+      - name: Check Allure report was generated
+        if: always()
+        id: allure_check
+        run: |
+          if [ -f target/site/allure-maven-plugin/index.html ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::target/site/allure-maven-plugin/index.html was not created -- see the 'Build Allure report' step's log above for the actual error. Skipping GitHub Pages publish."
+          fi
 
       - name: Publish Allure report to GitHub Pages
-        if: always()
+        if: always() && steps.allure_check.outputs.exists == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

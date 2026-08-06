@@ -10,6 +10,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -35,3 +38,42 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports/
           if-no-files-found: ignore
+
+      - name: Publish Cucumber HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-report
+          path: target/cucumber-report/
+          if-no-files-found: ignore
+
+      # allure-junit5 / allure-cucumber7-jvm already write raw results to
+      # target/allure-results during `mvn verify` above -- these two steps turn
+      # them into a browsable static site and publish it to GitHub Pages, so the
+      # report is viewable at https://<user>.github.io/<repo>/ without anyone
+      # needing Maven installed locally. history/ carries trend charts forward
+      # across runs by pulling the previous report off the gh-pages branch first.
+      - name: Load previous report history
+        if: always()
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Build Allure report
+        if: always()
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: target/allure-results
+          allure_history: allure-history
+          gh_pages: gh-pages
+          keep_reports: 20
+
+      - name: Publish Allure report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history

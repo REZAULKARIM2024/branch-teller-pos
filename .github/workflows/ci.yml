@@ -48,27 +48,17 @@ jobs:
           if-no-files-found: ignore
 
       # allure-junit5 / allure-cucumber7-jvm already write raw results to
-      # target/allure-results during `mvn verify` above -- these two steps turn
-      # them into a browsable static site and publish it to GitHub Pages, so the
-      # report is viewable at https://<user>.github.io/<repo>/ without anyone
-      # needing Maven installed locally. history/ carries trend charts forward
-      # across runs by pulling the previous report off the gh-pages branch first.
-      - name: Load previous report history
-        if: always()
-        uses: actions/checkout@v4
-        continue-on-error: true
-        with:
-          ref: gh-pages
-          path: gh-pages
-
+      # target/allure-results during `mvn verify` above -- this turns them into
+      # the same browsable static site `mvn allure:report` produces locally
+      # (target/site/allure-maven-plugin), then publishes that folder straight
+      # to the gh-pages branch so the report is viewable at
+      # https://<user>.github.io/<repo>/ without anyone needing Maven installed
+      # locally. (No cross-run trend history -- keeping this to the one
+      # already-proven command avoids the flakiness of chaining extra
+      # community actions just for trend charts.)
       - name: Build Allure report
         if: always()
-        uses: simple-elf/allure-report-action@master
-        with:
-          allure_results: target/allure-results
-          allure_history: allure-history
-          gh_pages: gh-pages
-          keep_reports: 20
+        run: mvn -q io.qameta.allure:allure-maven:2.15.2:report
 
       - name: Publish Allure report to GitHub Pages
         if: always()
@@ -76,4 +66,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: allure-history
+          publish_dir: target/site/allure-maven-plugin

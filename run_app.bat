@@ -1,9 +1,10 @@
 @echo off
 setlocal
-set DRIVER=lib\mysql-connector-j-9.7.0.jar
-if not exist target\classes (
-  echo Compiling...
-  mkdir target\classes 2>nul
-  javac -d target\classes -cp %DRIVER% -encoding UTF-8 $(dir /s /b src\main\java\*.java)
-)
-java -cp "target\classes;%DRIVER%" com.branchteller.Main
+set JAVA_HOME=C:\Program Files\Java\jdk-17
+set PATH=%JAVA_HOME%\bin;%PATH%
+cd /d %~dp0
+
+rem Runs off Maven's own dependency-resolved classpath (mysql-connector-j included via
+rem pom.xml + the exec-maven-plugin) instead of a hand-copied driver jar under lib\.
+call mvn -q compile exec:java -Dexec.mainClass=com.branchteller.Main
+pause

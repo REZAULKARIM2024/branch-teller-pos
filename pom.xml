@@ -137,6 +137,15 @@
           <reportVersion>${allure.version}</reportVersion>
         </configuration>
       </plugin>
+
+      <!-- Lets `mvn exec:java -Dexec.mainClass=...` run the Swing app or the ApiServer
+           straight off Maven's dependency-resolved classpath (mysql-connector-j included),
+           so run_app.bat / run_api_server.bat don't need a hand-copied driver jar under lib/. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.2.0</version>
+      </plugin>
     </plugins>
   </build>
 </project>

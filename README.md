@@ -271,8 +271,20 @@ translates onto this stack, and what's deliberately out of scope:
 
 ## Screenshots
 
-_Add screenshots of the Swing teller counter, General Ledger tab, and the React web
-console here before sharing this README externally._
+**Swing teller counter** — account lookup, deposit/withdraw entry, and the session's
+recent-transactions log:
+
+![Swing teller counter](docs/screenshots/teller-counter.jpg)
+
+**General Ledger — Trial Balance** — the live chart of accounts, debits/credits, and
+balanced-check straight from the double-entry ledger:
+
+![General Ledger trial balance](docs/screenshots/general-ledger.jpg)
+
+**React web console** — the same account-lookup/teller flow consumed over the REST API
+from a browser, with a live API/DB health banner:
+
+![React web console](docs/screenshots/react-web-console.jpg)
 
 ## Known simplifications
 

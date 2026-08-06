@@ -1,0 +1,13 @@
+# Never commit dependencies or build output -- regenerate with `npm install` / `npm run build`.
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor/OS noise
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Env files may contain machine-specific API URLs
+.env

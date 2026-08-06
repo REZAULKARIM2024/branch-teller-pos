@@ -1,0 +1,37 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      # MySQL runs every *.sql file in this directory once, in filename order, the very
+      # first time the container starts with an empty data volume -- that's why the
+      # scripts are numbered 01-04 (base schema, phase 8-19 expansion, phase 20 GL
+      # reports, then demo login credentials).
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-padmin123"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/branch_teller
+      DB_USER: root
+      DB_PASSWORD: admin123
+      API_PORT: 8082
+    ports:
+      - "8082:8082"
+
+volumes:
+  db_data:

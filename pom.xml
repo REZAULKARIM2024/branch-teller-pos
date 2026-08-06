@@ -1,0 +1,142 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.branchteller</groupId>
+  <artifactId>branch-teller-pos</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <allure.version>2.29.0</allure.version>
+    <cucumber.version>7.18.1</cucumber.version>
+    <junit-platform-suite.version>1.10.2</junit-platform-suite.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>9.7.0</version>
+    </dependency>
+
+    <!-- Test-only dependencies: JUnit 5 for unit tests, H2 as an in-memory stand-in
+         for MySQL so DAO/service tests that need a real Connection don't require a
+         live MySQL server, Mockito for mocking collaborators. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.11.0</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Allure JUnit5 reporting -->
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-junit5</artifactId>
+      <version>${allure.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Allure adapter for Cucumber scenario reporting -->
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-cucumber7-jvm</artifactId>
+      <version>${allure.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Cucumber BDD: feature files under src/test/resources/features, run through
+         the JUnit Platform Suite engine (see cucumber/RunCucumberTest.java) so `mvn test`
+         picks up scenarios alongside ordinary @Test methods in one build. -->
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-java</artifactId>
+      <version>${cucumber.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-junit-platform-engine</artifactId>
+      <version>${cucumber.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <version>${junit-platform-suite.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>branch-teller-pos</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.branchteller.Main</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <!-- Points DBConnection (which reads DB_URL/DB_USER/DB_PASSWORD from the
+               environment) at a single named, DB_CLOSE_DELAY=-1 H2 in-memory database
+               for the whole test JVM. Every service that calls DBConnection.getConnection()
+               internally (BankingService, CustomerService, ApprovalService, InterestService,
+               AmlService's read methods) therefore talks to this same schema during tests,
+               with zero code changes to the production classes. API_PORT is likewise
+               overridden so ApiServerIntegrationTest doesn't collide with a real instance
+               a developer might have running locally on 8082. See support/TestDatabase.java
+               for the schema this URL is expected to hold. -->
+          <environmentVariables>
+            <DB_URL>jdbc:h2:mem:branchteller_test;DB_CLOSE_DELAY=-1</DB_URL>
+            <DB_USER>sa</DB_USER>
+            <DB_PASSWORD></DB_PASSWORD>
+            <API_PORT>18082</API_PORT>
+          </environmentVariables>
+          <systemPropertyVariables>
+            <!-- Lets Allure's JUnit5 extension register itself via ServiceLoader without
+                 needing @ExtendWith on every test class. -->
+            <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
+            <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
+      <!-- `mvn io.qameta.allure:allure-maven:report` (or `mvn allure:report` once this
+           plugin is resolved) turns target/allure-results (written by the JUnit5 and
+           Cucumber Allure adapters above) into a browsable HTML report under
+           target/site/allure-maven-plugin. -->
+      <plugin>
+        <groupId>io.qameta.allure</groupId>
+        <artifactId>allure-maven</artifactId>
+        <version>2.15.2</version>
+        <configuration>
+          <reportVersion>${allure.version}</reportVersion>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -336,6 +336,15 @@ every push via `.github/workflows/ci.yml`):
 mvn verify
 ```
 
+**Quick reference** — every test command in one place:
+
+| Suite | Command | Notes |
+|---|---|---|
+| Backend (JUnit 5 + Cucumber + RestAssured API automation) | `mvn verify` | Runs in CI on every push, H2 in-memory, no MySQL/browser/display needed |
+| Frontend (Vitest) | `cd frontend && npm test` | 16 tests, headless (jsdom) |
+| Web UI automation (Selenium) | `mvn test -Dgroups=web-automation` | Opt-in — needs `run_api_server.bat` + `run_frontend.bat` running first |
+| Desktop UI automation (AssertJ-Swing) | `mvn test -Dgroups=desktop-automation` | Opt-in — needs a display (or `xvfb-run` on headless Linux) |
+
 - **JUnit 5** (130 tests) — pure-logic unit tests (interest math, approval thresholds,
   password hashing, role permissions), H2-backed integration tests (general ledger
   posting/trial-balance correctness, full deposit/withdraw/transfer/AML/approval/
@@ -578,6 +587,12 @@ feature parity with the Swing app.
 
 ## Roadmap
 
+- Run and verify the opt-in Web UI (Selenium) and Desktop UI (AssertJ-Swing) automation
+  suites locally against the full running stack (immediate next step — the suites are
+  written and documented but not yet exercised end-to-end)
+- Dedicated CI jobs for those same opt-in automation suites: build + serve the frontend
+  and run the Selenium suite headless; run the AssertJ-Swing suite under `xvfb-run` (see
+  [Test Automation Suite](#test-automation-suite))
 - Live cloud deployment of the API + React frontend (Render/Railway/Fly.io/AWS) for a
   clickable demo URL
 - Code coverage reporting (JaCoCo) with a quality gate, similar to the reporting layer
@@ -588,9 +603,6 @@ feature parity with the Swing app.
 - Security scanning in CI (Dependabot/Snyk/OWASP dependency-check)
 - Basic observability/structured logging
 - REST API authentication
-- Dedicated CI jobs for the opt-in automation suites: build + serve the frontend and run
-  the Selenium suite headless; run the AssertJ-Swing suite under `xvfb-run` (see
-  [Test Automation Suite](#test-automation-suite))
 
 ## Contributing
 

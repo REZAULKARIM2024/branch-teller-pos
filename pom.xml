@@ -79,6 +79,50 @@
       <version>${junit-platform-suite.version}</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- ===== Test automation suite (see src/test/java/com/branchteller/automation) =====
+         Three independent layers, each demonstrating a different automation discipline:
+           1) REST API automation (RestAssured):      @Tag("api-automation"), runs by default
+           2) Web UI automation (Selenium + POM):      @Tag("web-automation"), opt-in (needs
+              the React dev server + a real browser; see README "Test Automation" section)
+           3) Desktop UI automation (AssertJ-Swing):   @Tag("desktop-automation"), opt-in
+              (needs a display; use xvfb-run on headless Linux)
+         The excludedGroups in maven-surefire-plugin below keeps (2) and (3) out of the
+         default `mvn verify` / CI run so the pipeline doesn't need a browser or a display. -->
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <version>5.4.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest</artifactId>
+      <version>2.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-java</artifactId>
+      <version>4.21.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- Auto-downloads/manages the matching chromedriver binary for whatever Chrome
+           version is installed, so nobody has to hand-manage a chromedriver.exe on PATH. -->
+      <groupId>io.github.bonigarcia</groupId>
+      <artifactId>webdrivermanager</artifactId>
+      <version>5.8.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- Core (framework-agnostic) artifact: deliberately not assertj-swing-junit,
+           which pulls in a JUnit4 runner this JUnit5-only project doesn't use. -->
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-swing</artifactId>
+      <version>3.17.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -122,6 +166,12 @@
             <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
             <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
           </systemPropertyVariables>
+          <!-- web-automation (Selenium) and desktop-automation (AssertJ-Swing) need a real
+               browser / display and are excluded from the default run; api-automation
+               (RestAssured) needs neither, so it runs alongside the rest of the suite.
+               Run the excluded groups explicitly with -Dgroups=web-automation or
+               -Dgroups=desktop-automation once their prerequisites are met; see README. -->
+          <excludedGroups>web-automation,desktop-automation</excludedGroups>
         </configuration>
       </plugin>
 

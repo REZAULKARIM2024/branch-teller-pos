@@ -65,16 +65,17 @@ export default function AccountsPage() {
       <form onSubmit={lookup} className="inline-form">
         <input
           className="text-input"
+          data-testid="account-number-input"
           placeholder="Account number"
           value={accountNumber}
           onChange={(e) => setAccountNumber(e.target.value)}
         />
-        <button className="btn" type="submit" disabled={lookupLoading || !accountNumber.trim()}>
+        <button className="btn" data-testid="lookup-button" type="submit" disabled={lookupLoading || !accountNumber.trim()}>
           {lookupLoading ? "Looking up..." : "Look up"}
         </button>
       </form>
 
-      {lookupError && <p className="error-text">{lookupError}</p>}
+      {lookupError && <p className="error-text" data-testid="lookup-error">{lookupError}</p>}
 
       {account && (
         <div className="card">
@@ -96,7 +97,7 @@ export default function AccountsPage() {
           </div>
           <div className="card-row card-row--balance">
             <span className="card-label">Balance</span>
-            <span className="balance">${account.balance}</span>
+            <span className="balance" data-testid="account-balance">${account.balance}</span>
           </div>
 
           <hr />
@@ -106,6 +107,7 @@ export default function AccountsPage() {
               Amount
               <input
                 className="text-input"
+                data-testid="amount-input"
                 type="number"
                 min="0.01"
                 step="0.01"
@@ -134,6 +136,7 @@ export default function AccountsPage() {
             <div className="txn-buttons">
               <button
                 className="btn btn--primary"
+                data-testid="deposit-button"
                 disabled={txnLoading || !amount}
                 onClick={() => submitTxn("deposit")}
               >
@@ -141,15 +144,16 @@ export default function AccountsPage() {
               </button>
               <button
                 className="btn btn--danger"
+                data-testid="withdraw-button"
                 disabled={txnLoading || !amount}
                 onClick={() => submitTxn("withdraw")}
               >
                 Withdraw
               </button>
             </div>
-            {txnError && <p className="error-text">{txnError}</p>}
+            {txnError && <p className="error-text" data-testid="txn-error">{txnError}</p>}
             {lastTxn && (
-              <p className="success-text">
+              <p className="success-text" data-testid="txn-success-message">
                 {lastTxn.type} of ${lastTxn.amount} posted -- new balance ${lastTxn.balanceAfter}
               </p>
             )}

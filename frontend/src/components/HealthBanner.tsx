@@ -35,7 +35,7 @@ export default function HealthBanner() {
 
   if (error) {
     return (
-      <div className="health-banner health-banner--down">
+      <div className="health-banner health-banner--down" data-testid="health-banner">
         API unreachable ({error}) -- is ApiServer running on the configured
         VITE_API_BASE_URL?
       </div>
@@ -48,7 +48,7 @@ export default function HealthBanner() {
 
   const ok = health.status === "ok" && health.db === "connected";
   return (
-    <div className={`health-banner ${ok ? "health-banner--up" : "health-banner--down"}`}>
+    <div className={`health-banner ${ok ? "health-banner--up" : "health-banner--down"}`} data-testid="health-banner">
       API: {health.status} &middot; Database: {health.db}
       {health.dbError ? ` (${health.dbError})` : ""}
     </div>

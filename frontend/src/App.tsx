@@ -33,6 +33,7 @@ export default function App() {
         {TABS.map((t) => (
           <button
             key={t.id}
+            data-testid={`tab-${t.id}`}
             className={`tab-nav-btn ${tab === t.id ? "tab-nav-btn--active" : ""}`}
             onClick={() => setTab(t.id)}
           >

@@ -17,6 +17,13 @@ public class LoginFrame extends JFrame {
 
     public LoginFrame() {
         super(Messages.tr("login.windowTitle"));
+        // Component names below exist purely so the AssertJ-Swing desktop automation
+        // suite (see src/test/java/com/branchteller/automation/desktop) can find these
+        // controls reliably instead of relying on tab order or component type alone --
+        // they have no effect on runtime behavior.
+        setName("loginFrame");
+        usernameField.setName("usernameField");
+        passwordField.setName("passwordField");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
         setLayout(new BorderLayout());
@@ -46,6 +53,7 @@ public class LoginFrame extends JFrame {
         gbc.gridx = 1; panel.add(passwordField, gbc);
 
         JButton loginBtn = UITheme.accentButton(Messages.tr("login.button"));
+        loginBtn.setName("loginButton");
         gbc.gridy = 3; gbc.gridx = 1; gbc.anchor = GridBagConstraints.EAST;
         panel.add(loginBtn, gbc);
 

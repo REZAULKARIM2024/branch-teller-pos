@@ -16,6 +16,9 @@ back-office workflows fit together — not a toy CRUD app.
 ![Cucumber](https://img.shields.io/badge/BDD-Cucumber-23D96C?logo=cucumber&logoColor=white)
 ![Allure](https://img.shields.io/badge/Reporting-Allure-FF6C37)
 ![Vitest](https://img.shields.io/badge/Frontend%20Tests-Vitest-6E9F18?logo=vitest&logoColor=white)
+![RestAssured](https://img.shields.io/badge/API%20Automation-RestAssured-25A162)
+![Selenium](https://img.shields.io/badge/Web%20UI%20Automation-Selenium-43B02A?logo=selenium&logoColor=white)
+![AssertJ-Swing](https://img.shields.io/badge/Desktop%20UI%20Automation-AssertJ--Swing-2E7D32)
 [![CI](https://github.com/REZAULKARIM2024/branch-teller-pos/actions/workflows/ci.yml/badge.svg)](https://github.com/REZAULKARIM2024/branch-teller-pos/actions/workflows/ci.yml)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
@@ -41,6 +44,7 @@ and the double-entry General Ledger updating live:
 - [Project Structure](#project-structure)
 - [Database Overview](#database-overview)
 - [Testing](#testing)
+- [Test Automation Suite](#test-automation-suite)
 - [Test Database Strategy](#test-database-strategy)
 - [Test Reporting (Allure)](#test-reporting-allure)
 - [BDD Testing (Cucumber)](#bdd-testing-cucumber)
@@ -92,7 +96,7 @@ flowchart TB
     DAO --> DB
 
     subgraph DevOps["Build, Test & Deploy"]
-        Tests["JUnit 5 + Cucumber + H2<br/>144 automated tests"]
+        Tests["JUnit 5 + Cucumber + RestAssured + H2<br/>156 automated tests"]
         CI["GitHub Actions CI<br/>mvn verify on every push"]
         Docker["Docker Compose<br/>mysql + api services"]
     end
@@ -277,6 +281,9 @@ src/test/java/com/branchteller/
   docker/     Docker init-script contract test
   cucumber/   Gherkin step definitions + JUnit Platform Suite runner
   support/    Shared H2 schema/fixture helpers, shared test ApiServer singleton
+  automation/ Test automation suite (see "Test Automation Suite" section):
+              api/ (RestAssured), web/ + web/pages/ (Selenium + Page Object Model),
+              desktop/ (AssertJ-Swing)
 src/test/resources/features/
   account_lifecycle.feature, api.feature   Gherkin scenarios (14 total)
 database/
@@ -322,7 +329,7 @@ complete definitions.
 
 ## Testing
 
-144 automated tests across two engines, both run by a single command (and in CI on
+156 automated tests across three engines, all run by a single command (and in CI on
 every push via `.github/workflows/ci.yml`):
 
 ```bash
@@ -338,11 +345,18 @@ mvn verify
   - `AmlServiceTest`, `GlServicePostTest`, `GlDaoIntegrationTest` — self-contained H2 connections
   - `InterestServiceTest`, `ApprovalServiceTest` — `@ParameterizedTest` boundary sweeps
   - `EndToEndFlowTest` — full onboarding → KYC → account → transact → AML → approval → interest-accrual flow
-  - `ApiServerIntegrationTest` — live HTTP tests against `ApiServer`
+  - `ApiServerIntegrationTest` — live HTTP tests against `ApiServer` (raw `HttpClient`)
   - `DockerInitScriptsTest` — verifies the Docker init-script contract (numbered, no gaps, non-empty)
 - **Cucumber** (14 scenarios) — the same account-lifecycle and API flows expressed as
   Gherkin `.feature` files under `src/test/resources/features/`, run through the JUnit
   Platform Suite engine (`cucumber/RunCucumberTest.java`).
+- **RestAssured API automation** (12 tests) — the same endpoints re-exercised through a
+  dedicated automation library instead of raw `HttpClient`; see
+  [Test Automation Suite](#test-automation-suite) below.
+
+Two further automation suites (Selenium web UI, AssertJ-Swing desktop UI — 5 tests
+total) are opt-in rather than part of `mvn verify`; see the next section for why and
+how to run them.
 
 **Frontend tests** (React components, via Vitest + Testing Library):
 
@@ -356,6 +370,65 @@ npm run test:coverage  # same, with a coverage report
 Covers `HealthBanner`, `CustomersPage`, `AccountsPage` (including the deposit flow and
 error states), and `TrialBalancePage` — including basic accessibility checks via
 `getByLabelText`/`getByPlaceholderText`.
+
+## Test Automation Suite
+
+Beyond the unit/integration/BDD tests above, `src/test/java/com/branchteller/automation/`
+holds three independent automation layers, each built with the tool that's actually
+standard for that layer rather than one framework stretched to cover everything:
+
+| Layer | Tool | Package | Runs in `mvn verify`? |
+|---|---|---|---|
+| REST API | RestAssured | `automation.api` | ✅ yes — no browser/display needed |
+| Web UI | Selenium 4 + Page Object Model | `automation.web` | ⛔ opt-in — needs a real browser + the frontend running |
+| Desktop UI | AssertJ-Swing | `automation.desktop` | ⛔ opt-in — needs a display |
+
+**REST API automation (RestAssured)** — `ApiAutomationBase` starts the same in-process
+`ApiServer` + H2 schema the plain-`HttpClient` `ApiServerIntegrationTest` uses, then
+`HealthAndCustomersApiTest` / `AccountAndTransactionApiTest` exercise it in
+given/when/then style with JSON-path assertions (`body("balance", equalTo("175.00"))`)
+instead of manual string parsing. Tagged `@Tag("api-automation")` and included in the
+default run, so it's part of the 156 tests that go green in CI on every push.
+
+**Web UI automation (Selenium + Page Object Model)** — `WebDriverFactory` launches
+headless Chrome (auto-managed by WebDriverManager, no chromedriver binary to hand-install),
+and `pages/BranchTellerAppPage` / `pages/TellerOperationsPage` wrap the React console's
+`data-testid`-tagged elements (added to `AccountsPage.tsx`, `App.tsx`, `HealthBanner.tsx`
+specifically for this) so `TellerOperationsWebFlowTest` reads as business steps —
+`openCustomersTab()`, `lookupAccount(...)` — with no raw CSS selectors in the test body.
+It's opt-in because it needs the real stack running against a real database, not the H2
+test schema:
+
+```bash
+# terminal 1
+run_api_server.bat
+# terminal 2
+run_frontend.bat
+# terminal 3
+mvn test -Dgroups=web-automation
+# or, to watch the browser drive itself instead of headless:
+mvn test -Dgroups=web-automation -Dautomation.headless=false
+```
+
+**Desktop UI automation (AssertJ-Swing)** — `LoginDesktopTest` launches the actual
+`LoginFrame` class in-process (not a rewritten test double) and drives its real Swing
+components, found via `setName(...)` calls added to `usernameField` / `passwordField` /
+`loginButton` for exactly this purpose. It exercises the client-side validation path
+(submitting with both fields empty → the warning `JOptionPane`) rather than a real
+login, so it has no MySQL dependency and passes regardless of what's seeded:
+
+```bash
+mvn test -Dgroups=desktop-automation
+# headless Linux (e.g. inside a container/CI): wrap with a virtual display
+xvfb-run -a mvn test -Dgroups=desktop-automation
+```
+
+Why keep (2) and (3) out of the default `mvn verify`: GitHub-hosted CI runners don't
+have the frontend built-and-served or a display attached without extra setup, and
+failing the whole pipeline over infrastructure the CI environment doesn't provide
+would be noise, not signal. Wiring a dedicated CI job for each (headless Chrome against
+a built frontend; `xvfb-run` for the Swing suite) is a natural next step — see
+[Roadmap](#roadmap).
 
 ## Test Database Strategy
 
@@ -479,8 +552,10 @@ database.
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
 
 1. Checks out the repo and sets up JDK 17 (Temurin, with Maven dependency caching).
-2. Runs `mvn -B verify` — the full 144-test suite (JUnit 5 + Cucumber) against H2, no
-   MySQL service container needed.
+2. Runs `mvn -B verify` — the full 156-test suite (JUnit 5 + Cucumber + RestAssured API
+   automation) against H2, no MySQL service container needed. The Selenium and
+   AssertJ-Swing automation suites are opt-in and don't run here yet — see
+   [Test Automation Suite](#test-automation-suite).
 3. Uploads the Surefire and Cucumber HTML reports as build artifacts, even if a step
    fails.
 4. Generates the Allure report (`mvn allure:report`) and publishes it straight to the
@@ -513,6 +588,9 @@ feature parity with the Swing app.
 - Security scanning in CI (Dependabot/Snyk/OWASP dependency-check)
 - Basic observability/structured logging
 - REST API authentication
+- Dedicated CI jobs for the opt-in automation suites: build + serve the frontend and run
+  the Selenium suite headless; run the AssertJ-Swing suite under `xvfb-run` (see
+  [Test Automation Suite](#test-automation-suite))
 
 ## Contributing
 

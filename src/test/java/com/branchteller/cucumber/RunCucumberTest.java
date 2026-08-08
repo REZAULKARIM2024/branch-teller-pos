@@ -15,8 +15,17 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
  * (target/cucumber-report/cucumber.html), a machine-readable JSON report (for CI
  * artifacts/other tooling), and feeds the same Allure results directory the JUnit5
  * tests write to, so `mvn allure:report` covers both kinds of tests in one place.
+ *
+ * <p>{@code failIfNoTests = false}: when Maven Surefire is invoked with {@code -Dgroups=...}
+ * (e.g. {@code -Dgroups=web-automation} to run just the opt-in Selenium suite), that tag
+ * filter is inherited by every nested engine this suite delegates to -- including Cucumber's.
+ * None of the .feature scenarios carry that tag, so the suite legitimately discovers zero
+ * tests in that situation. Without this flag the JUnit Platform Suite Engine treats "zero
+ * tests discovered" as a hard configuration error (NoTestsDiscoveredException) and fails the
+ * whole build, even though nothing is actually broken -- see
+ * https://github.com/junit-team/junit-framework/discussions/4100.</p>
  */
-@Suite
+@Suite(failIfNoTests = false)
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
 @ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.branchteller.cucumber.steps")

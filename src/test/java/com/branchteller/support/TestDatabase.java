@@ -170,6 +170,9 @@ public final class TestDatabase {
             st.execute("INSERT INTO gl_accounts (code, name, account_class, normal_balance) VALUES " +
                     "('1000','Cash and Cash Equivalents','ASSET','DEBIT'), " +
                     "('1100','Customer Deposits Control','LIABILITY','CREDIT'), " +
+                    "('1200','Loans Receivable','ASSET','DEBIT'), " +
+                    "('3000','Owners Equity / Capital','EQUITY','CREDIT'), " +
+                    "('4000','Interest Income','INCOME','CREDIT'), " +
                     "('5000','Interest Expense','EXPENSE','DEBIT'), " +
                     "('5100','Salaries Expense','EXPENSE','DEBIT'), " +
                     "('9001','Test-Only Ledger Regression Account','ASSET','DEBIT')");

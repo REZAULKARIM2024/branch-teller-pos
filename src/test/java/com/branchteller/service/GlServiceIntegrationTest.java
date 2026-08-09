@@ -167,11 +167,16 @@ class GlServiceIntegrationTest {
         // Regression test for the bug found in this review: GlService.ledger() used to always
         // start the running balance at zero, even when `from` narrowed the window -- so filtering
         // by date silently turned "Ending balance" into just that window's net change instead of
-        // the account's real balance. Uses GL code "9001" -- a dedicated account seeded in
-        // TestDatabase's schema and touched by NOTHING else in the entire suite -- instead of the
-        // shared "1000"/"1100" codes, so the expected absolute numbers below can never be
-        // contaminated by another test's historical-date activity landing in the same window
-        // (which a shared code + random historicalDate() arithmetic can't fully rule out).
+        // the account's real balance. This originally used GL code "9001" with hardcoded absolute
+        // expected numbers, on the assumption that "9001" was touched by nothing else in the whole
+        // suite -- but FinancialReportsIntegrationTest later added its own controlled postings to
+        // "9001" too (at its own random historical dates), so a hardcoded "prior balance was
+        // exactly 1500.00" assumption can be silently contaminated by that other test's activity
+        // landing before `day`. Like the analogous cashFlow regression test, this is now written
+        // as a delta test: it independently queries the account's TRUE running balance as of the
+        // end of day.minusDays(1) (via the unfiltered from=null code path) as ground truth, then
+        // asserts the windowed (from=day) running balance seeds from exactly that value plus this
+        // test's own in-window posting -- correct no matter what else is sitting in "9001"'s history.
         LocalDate day = TestDatabase.uniqueHistoricalDate();
 
         // Prior activity BEFORE the filtered window -- must be carried forward, not dropped.
@@ -179,6 +184,14 @@ class GlServiceIntegrationTest {
         TestDatabase.insertGlEntryAt("1100", BigDecimal.ZERO, new BigDecimal("1000.00"), "Prior activity 1", day.minusDays(10).atTime(9, 0));
         TestDatabase.insertGlEntryAt("9001", new BigDecimal("500.00"), BigDecimal.ZERO, "Prior activity 2", day.minusDays(5).atTime(9, 0));
         TestDatabase.insertGlEntryAt("1100", BigDecimal.ZERO, new BigDecimal("500.00"), "Prior activity 2", day.minusDays(5).atTime(9, 0));
+
+        // Ground truth: the account's real running balance as of the end of the day BEFORE the
+        // window, established independently via the from=null (full history) code path.
+        List<GlEntryLine> priorHistory = glService.ledger("9001", null, day.minusDays(1));
+        BigDecimal balanceBeforeWindow = priorHistory.isEmpty()
+                ? BigDecimal.ZERO
+                : priorHistory.get(priorHistory.size() - 1).getRunningBalance();
+
         // Activity INSIDE the filtered window.
         TestDatabase.insertGlEntryAt("9001", new BigDecimal("300.00"), BigDecimal.ZERO, "In-window activity", day.atTime(9, 0));
         TestDatabase.insertGlEntryAt("1100", BigDecimal.ZERO, new BigDecimal("300.00"), "In-window activity", day.atTime(9, 0));
@@ -186,8 +199,8 @@ class GlServiceIntegrationTest {
         List<GlEntryLine> windowed = glService.ledger("9001", day, day);
 
         assertEquals(1, windowed.size(), "Only the in-window leg should be returned as a row");
-        assertEquals(0, new BigDecimal("1800.00").compareTo(windowed.get(0).getRunningBalance()),
-                "Running balance must carry forward the 1500.00 posted before the window, plus the window's own 300.00 -- " +
+        assertEquals(0, balanceBeforeWindow.add(new BigDecimal("300.00")).compareTo(windowed.get(0).getRunningBalance()),
+                "Running balance must carry forward whatever was truly posted before the window, plus the window's own 300.00 -- " +
                         "NOT reset to just the window's 300.00 net change");
     }
 

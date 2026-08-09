@@ -479,6 +479,7 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("20. Financial Reports (Manager+)",
                 "<h2>Financial Reports</h2>"
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
                 + "<p>Three standard financial statements, computed live from the General Ledger &mdash; nothing "
                 + "here is manually entered, so they always match the books. Each has its own sub-tab.</p>"
                 + "<p><b>Balance Sheet</b> (as of today): click <b>Refresh</b> to see Assets, Liabilities, and "
@@ -487,13 +488,18 @@ public class HelpPanel extends JPanel {
                 + "without one. The footer confirms <b>(Balanced)</b> or flags an out-of-balance condition.</p>"
                 + "<p><b>Income Statement:</b> enter an optional From/To date range (YYYY-MM-DD, blank = "
                 + "all-time) and click <b>Refresh</b> to see Income accounts, Expense accounts, and the "
-                + "resulting Net Income (or Net Loss) for that period.</p>"
+                + "resulting Net Income (or Net Loss) for that period. Note: in the current system, the only "
+                + "postings are on the expense side (interest paid to depositors, payroll) &mdash; no fee or "
+                + "interest-income postings exist yet &mdash; so this statement will show $0.00 Income and a "
+                + "Net Loss until a revenue-generating feature is added.</p>"
                 + "<p><b>Cash Flow:</b> enter an optional From/To date range and click <b>Refresh</b> to see "
                 + "Beginning Cash Balance, then every cash movement grouped into <b>Operating</b> (customer "
                 + "deposits/withdrawals, bill payments, wire transfers out, payroll), <b>Investing</b> (loan "
                 + "funding activity, when it touches cash), and <b>Financing</b> (owner capital contributions), "
-                + "ending with Net Change in Cash and Ending Cash Balance. A footer line confirms the ending "
-                + "balance reconciles against the Cash account's own ledger.</p>"
+                + "ending with Net Change in Cash and Ending Cash Balance. Beginning Cash Balance correctly "
+                + "reflects everything posted strictly before the From date, never double-counting the From "
+                + "date's own activity. A footer line confirms the ending balance reconciles against the Cash "
+                + "account's own ledger.</p>"
                 + "<p>All three reports have an <b>Export CSV</b> button to save a copy for outside use.</p>");
 
         // ------------------------------------------------------------------

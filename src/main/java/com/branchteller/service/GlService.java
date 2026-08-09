@@ -170,8 +170,16 @@ public class GlService {
         CashFlowStatement cf = new CashFlowStatement();
         try (Connection conn = DBConnection.getConnection()) {
             if (from != null) {
+                // Same off-by-one that was found and fixed in ledger(): GlDAO's `to` bound is
+                // inclusive of the WHOLE day passed in (created_at < to.plusDays(1)), so passing
+                // `from` itself here would fold `from`'s own day into "Beginning Cash Balance" --
+                // and cashTouchingEntries(from, to) below ALSO includes `from`'s day (its `from`
+                // bound is created_at >= from.atStartOfDay()), so any cash activity posted exactly
+                // on `from`'s date would be double-counted: once in beginningCash, once again in
+                // the period's Operating/Investing/Financing lines. from.minusDays(1) correctly
+                // stops the "beginning" balance at the day BEFORE the period starts.
                 BigDecimal balance = BigDecimal.ZERO;
-                for (GlEntryLine line : glDAO.ledgerForAccount(conn, CASH_CODE, null, from)) {
+                for (GlEntryLine line : glDAO.ledgerForAccount(conn, CASH_CODE, null, from.minusDays(1))) {
                     balance = balance.add(line.getDebit()).subtract(line.getCredit());
                 }
                 cf.beginningCash = balance;

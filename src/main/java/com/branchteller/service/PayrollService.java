@@ -76,36 +76,53 @@ public class PayrollService {
         }
     }
 
-    /** Computes gross/tax/net from clocked hours in [periodStart, periodEnd] and records the run. */
+    /** Computes gross/tax/net from clocked hours in [periodStart, periodEnd] and records the run.
+     *
+     * <p>Wrapped in an explicit transaction (setAutoCommit(false)/commit()/rollback()) around the
+     * payroll-run insert, audit log, and the two-leg GL post -- matching every other caller of
+     * glService.post() (BankingService, LoanService, PaymentsService, InterestService). Without
+     * this, each statement on the connection auto-commits independently, so if the GL post failed
+     * partway through (e.g. after the debit leg but before the credit leg), the payroll run row
+     * would already be permanently saved while the ledger was left out of balance with no way to
+     * roll back -- silently violating the double-entry invariant this whole feature depends on. */
     public PayrollRun runPayroll(int employeeId, LocalDate periodStart, LocalDate periodEnd, int actorId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
-            Employee employee = employeeDAO.findById(conn, employeeId)
-                    .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + employeeId));
+            conn.setAutoCommit(false);
+            try {
+                Employee employee = employeeDAO.findById(conn, employeeId)
+                        .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + employeeId));
 
-            double hours = timeClockDAO.totalHours(conn, employeeId, periodStart, periodEnd);
-            BigDecimal hoursWorked = BigDecimal.valueOf(hours).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal grossPay = hoursWorked.multiply(employee.getHourlyRate()).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal taxWithheld = grossPay.multiply(FLAT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal netPay = grossPay.subtract(taxWithheld);
+                double hours = timeClockDAO.totalHours(conn, employeeId, periodStart, periodEnd);
+                BigDecimal hoursWorked = BigDecimal.valueOf(hours).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal grossPay = hoursWorked.multiply(employee.getHourlyRate()).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal taxWithheld = grossPay.multiply(FLAT_TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal netPay = grossPay.subtract(taxWithheld);
 
-            PayrollRun run = new PayrollRun();
-            run.setEmployeeId(employeeId);
-            run.setPeriodStart(periodStart);
-            run.setPeriodEnd(periodEnd);
-            run.setHoursWorked(hoursWorked);
-            run.setGrossPay(grossPay);
-            run.setTaxWithheld(taxWithheld);
-            run.setNetPay(netPay);
-            int id = payrollDAO.insert(conn, run);
-            run.setId(id);
-            run.setEmployeeName(employee.getFullName());
+                PayrollRun run = new PayrollRun();
+                run.setEmployeeId(employeeId);
+                run.setPeriodStart(periodStart);
+                run.setPeriodEnd(periodEnd);
+                run.setHoursWorked(hoursWorked);
+                run.setGrossPay(grossPay);
+                run.setTaxWithheld(taxWithheld);
+                run.setNetPay(netPay);
+                int id = payrollDAO.insert(conn, run);
+                run.setId(id);
+                run.setEmployeeName(employee.getFullName());
 
-            auditService.log(conn, actorId, "PAYROLL_RUN", "employee", employeeId,
-                    null, "net pay " + netPay + " for " + periodStart + " to " + periodEnd);
-            glService.post(conn, "5100", "1000", netPay, null,
-                    "Payroll run for " + employee.getFullName() + " (" + periodStart + " to " + periodEnd + ")");
+                auditService.log(conn, actorId, "PAYROLL_RUN", "employee", employeeId,
+                        null, "net pay " + netPay + " for " + periodStart + " to " + periodEnd);
+                glService.post(conn, "5100", "1000", netPay, null,
+                        "Payroll run for " + employee.getFullName() + " (" + periodStart + " to " + periodEnd + ")");
 
-            return run;
+                conn.commit();
+                return run;
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
 

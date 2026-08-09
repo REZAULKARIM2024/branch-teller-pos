@@ -170,7 +170,35 @@ public final class TestDatabase {
             st.execute("INSERT INTO gl_accounts (code, name, account_class, normal_balance) VALUES " +
                     "('1000','Cash and Cash Equivalents','ASSET','DEBIT'), " +
                     "('1100','Customer Deposits Control','LIABILITY','CREDIT'), " +
-                    "('5000','Interest Expense','EXPENSE','DEBIT')");
+                    "('5000','Interest Expense','EXPENSE','DEBIT'), " +
+                    "('5100','Salaries Expense','EXPENSE','DEBIT'), " +
+                    "('9001','Test-Only Ledger Regression Account','ASSET','DEBIT')");
+
+            st.execute("CREATE TABLE employees (" +
+                    "employee_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "full_name VARCHAR(100) NOT NULL, " +
+                    "position VARCHAR(50) NOT NULL, " +
+                    "hourly_rate DECIMAL(8,2) NOT NULL, " +
+                    "hire_date DATE NOT NULL, " +
+                    "active BOOLEAN NOT NULL DEFAULT TRUE, " +
+                    "user_id INT NULL)");
+
+            st.execute("CREATE TABLE time_clock (" +
+                    "clock_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "employee_id INT NOT NULL, " +
+                    "clock_in TIMESTAMP NOT NULL, " +
+                    "clock_out TIMESTAMP NULL)");
+
+            st.execute("CREATE TABLE payroll_runs (" +
+                    "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "employee_id INT NOT NULL, " +
+                    "period_start DATE NOT NULL, " +
+                    "period_end DATE NOT NULL, " +
+                    "hours_worked DECIMAL(6,2) NOT NULL, " +
+                    "gross_pay DECIMAL(10,2) NOT NULL, " +
+                    "tax_withheld DECIMAL(10,2) NOT NULL, " +
+                    "net_pay DECIMAL(10,2) NOT NULL, " +
+                    "run_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
         }
     }
 
@@ -456,6 +484,97 @@ public final class TestDatabase {
             ps.setString(2, "Test flag for report boundary check");
             ps.setBigDecimal(3, amount);
             ps.setTimestamp(4, java.sql.Timestamp.valueOf(flaggedAt));
+            ps.executeUpdate();
+        }
+    }
+
+    /** Inserts one gl_entries leg with an explicit created_at, bypassing GlService.post()'s
+     *  NOW()-based timestamp -- needed to test GlService.journal()/ledger()'s day-boundary
+     *  filtering and running-balance carry-forward precisely, the same way insertTransactionAt/
+     *  insertFlagAt let ReportServiceIntegrationTest own an exclusive historical date. */
+    public static void insertGlEntryAt(String glCode, BigDecimal debit, BigDecimal credit, String description,
+                                        java.time.LocalDateTime postedAt) throws SQLException {
+        String sql = "INSERT INTO gl_entries (gl_account_id, debit, credit, description, created_at) " +
+                "SELECT gl_account_id, ?, ?, ?, ? FROM gl_accounts WHERE code = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, debit);
+            ps.setBigDecimal(2, credit);
+            ps.setString(3, description);
+            ps.setTimestamp(4, java.sql.Timestamp.valueOf(postedAt));
+            ps.setString(5, glCode);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Inserts an active employee at the given hourly rate, bypassing PayrollService.hire()
+     *  (which is exercised directly elsewhere) -- used by payroll tests that need an employee
+     *  already in place before calling runPayroll(). */
+    public static int insertEmployee(BigDecimal hourlyRate) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO employees (full_name, position, hourly_rate, hire_date, active) VALUES (?, 'Test Position', ?, ?, TRUE)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, "Test Employee " + nextSeq());
+            ps.setBigDecimal(2, hourlyRate);
+            ps.setDate(3, java.sql.Date.valueOf(LocalDate.now().minusYears(1)));
+            ps.executeUpdate();
+            return generatedId(ps);
+        }
+    }
+
+    /** Inserts a completed (clocked-out) time_clock row with explicit in/out timestamps,
+     *  bypassing PayrollService.clockIn()/clockOut()'s NOW()-based timestamps -- needed so
+     *  payroll tests can seed an exact, known number of worked hours. */
+    public static void insertCompletedPunch(int employeeId, java.time.LocalDateTime clockIn, java.time.LocalDateTime clockOut) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO time_clock (employee_id, clock_in, clock_out) VALUES (?, ?, ?)")) {
+            ps.setInt(1, employeeId);
+            ps.setTimestamp(2, java.sql.Timestamp.valueOf(clockIn));
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(clockOut));
+            ps.executeUpdate();
+        }
+    }
+
+    /** Count of payroll_runs rows for a given employee -- lets a test prove a failed
+     *  runPayroll() call left no orphaned row behind. */
+    public static int payrollRunCountForEmployee(int employeeId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM payroll_runs WHERE employee_id = ?")) {
+            ps.setInt(1, employeeId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    /** Temporarily removes a GL account so a test can force GlService.post() to fail with
+     *  "Unknown GL account code" -- used to prove a caller correctly rolls back everything else
+     *  it wrote when the GL post fails partway through. MUST be paired with
+     *  {@link #restoreGlAccount} in a finally block: this mutates the one shared, whole-JVM H2
+     *  database every other test class's fixtures also depend on, and Surefire runs JUnit tests
+     *  sequentially in a single fork (no parallel execution configured in pom.xml), so as long as
+     *  the code is restored before this test method returns, no other test can ever observe it
+     *  missing. */
+    public static void temporarilyRemoveGlAccount(String code) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM gl_accounts WHERE code = ?")) {
+            ps.setString(1, code);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Restores a GL account previously removed by {@link #temporarilyRemoveGlAccount}. */
+    public static void restoreGlAccount(String code, String name, String accountClass, String normalBalance) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO gl_accounts (code, name, account_class, normal_balance) VALUES (?, ?, ?, ?)")) {
+            ps.setString(1, code);
+            ps.setString(2, name);
+            ps.setString(3, accountClass);
+            ps.setString(4, normalBalance);
             ps.executeUpdate();
         }
     }

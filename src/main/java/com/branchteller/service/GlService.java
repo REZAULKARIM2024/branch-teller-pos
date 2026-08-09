@@ -55,15 +55,38 @@ public class GlService {
     }
 
     /** General Ledger for one account: its posted legs in order, with a running balance
-     *  computed in the account's own normal-balance direction (so it reads like a real T-account). */
+     *  computed in the account's own normal-balance direction (so it reads like a real T-account).
+     *
+     * <p>When `from` narrows the window, the running balance (and therefore the "Ending balance"
+     * shown under the table) is seeded with the account's real balance carried forward from
+     * everything posted before `from` -- not reset to zero. Without this, filtering the Ledger
+     * tab to, say, "this month" would show an "Ending balance" that is really just that month's
+     * net change, silently misrepresenting the account's actual balance to whoever is reading it
+     * (a serious defect for a banking ledger). This mirrors the same carry-forward technique
+     * {@link #cashFlow} already uses for beginningCash. */
     public List<GlEntryLine> ledger(String glCode, LocalDate from, LocalDate to) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             GlAccount account = glDAO.listAccounts(conn).stream()
                     .filter(a -> a.getCode().equals(glCode)).findFirst()
                     .orElseThrow(() -> new SQLException("Unknown GL account code: " + glCode));
-            List<GlEntryLine> lines = glDAO.ledgerForAccount(conn, glCode, from, to);
             boolean debitNormal = "DEBIT".equals(account.getNormalBalance());
+
             BigDecimal running = BigDecimal.ZERO;
+            if (from != null) {
+                // IMPORTANT: GlDAO's `to` bound is inclusive of the WHOLE day passed in (it
+                // filters created_at < to.plusDays(1)), so passing `from` itself here would
+                // wrongly include `from`'s own day in the "prior" sum -- double-counting it
+                // against the main windowed loop below, which also includes that same day.
+                // Passing from.minusDays(1) correctly stops at the day BEFORE the window starts.
+                for (GlEntryLine priorLine : glDAO.ledgerForAccount(conn, glCode, null, from.minusDays(1))) {
+                    BigDecimal priorDelta = debitNormal
+                            ? priorLine.getDebit().subtract(priorLine.getCredit())
+                            : priorLine.getCredit().subtract(priorLine.getDebit());
+                    running = running.add(priorDelta);
+                }
+            }
+
+            List<GlEntryLine> lines = glDAO.ledgerForAccount(conn, glCode, from, to);
             for (GlEntryLine line : lines) {
                 BigDecimal delta = debitNormal
                         ? line.getDebit().subtract(line.getCredit())

@@ -42,13 +42,32 @@ public class ApprovalDAO {
         return Optional.empty();
     }
 
-    public void decide(Connection conn, int approvalId, String status, int approvedBy, String decisionNote) throws SQLException {
-        String sql = "UPDATE pending_approvals SET status = ?, approved_by = ?, decision_note = ?, decided_at = NOW() WHERE approval_id = ?";
+    /** Atomically transitions a request's status, but only if it is still PENDING -- this is
+     *  the compare-and-set that makes concurrent approve()/reject() calls on the same request
+     *  race-safe: only one caller's UPDATE can actually match a row.
+     *  @return true if the transition happened; false if another decision already claimed it
+     *  (or the id doesn't exist). */
+    public boolean decide(Connection conn, int approvalId, String status, int approvedBy, String decisionNote) throws SQLException {
+        String sql = "UPDATE pending_approvals SET status = ?, approved_by = ?, decision_note = ?, decided_at = NOW() " +
+                "WHERE approval_id = ? AND status = 'PENDING'";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, approvedBy);
             ps.setString(3, decisionNote);
             ps.setInt(4, approvalId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    /** Reverts a claimed request back to PENDING -- used when approve() successfully claims
+     *  a request (flips it out of PENDING) but the subsequent money movement then fails (e.g.
+     *  insufficient funds), so the request isn't left stuck in a decided state with no funds
+     *  actually moved. */
+    public void revertToPending(Connection conn, int approvalId) throws SQLException {
+        String sql = "UPDATE pending_approvals SET status = 'PENDING', approved_by = NULL, " +
+                "decision_note = NULL, decided_at = NULL WHERE approval_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, approvalId);
             ps.executeUpdate();
         }
     }

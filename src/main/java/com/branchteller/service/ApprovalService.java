@@ -65,7 +65,16 @@ public class ApprovalService {
         }
     }
 
-    /** Approves and executes the queued movement. */
+    /** Approves and executes the queued movement.
+     *
+     * <p>The status transition is claimed atomically (an UPDATE ... WHERE status='PENDING')
+     * BEFORE the money movement runs, so two concurrent approve() calls racing on the same
+     * request can't both pass a stale check and both execute the withdrawal/transfer -- only
+     * one caller's claim can succeed. If the claim fails, the request was already decided
+     * (approved, rejected, or claimed by a concurrent approve() call right now) and this
+     * throws immediately without touching any funds. If the claim succeeds but the money
+     * movement then fails (e.g. insufficient funds), the claim is reverted back to PENDING
+     * so the request isn't stuck in a decided state with no funds actually moved. */
     public void approve(int approvalId, User approver, String decisionNote) throws SQLException, InsufficientFundsException {
         PendingApproval a;
         try (Connection conn = DBConnection.getConnection()) {
@@ -74,26 +83,49 @@ public class ApprovalService {
             if (!"PENDING".equals(a.getStatus())) {
                 throw new IllegalStateException("Request " + approvalId + " already decided");
             }
+            boolean claimed = approvalDAO.decide(conn, approvalId, "APPROVED", approver.getId(), decisionNote);
+            if (!claimed) {
+                throw new IllegalStateException("Request " + approvalId + " already decided");
+            }
         }
 
-        if ("WITHDRAW".equals(a.getRequestType())) {
-            bankingService.withdraw(a.getAccountId(), a.getAmount(), a.getRequestedBy(),
-                    "[Manager-approved] " + (a.getRequestNote() == null ? "" : a.getRequestNote()));
-        } else if ("TRANSFER".equals(a.getRequestType())) {
-            bankingService.transfer(a.getAccountId(), a.getToAccountId(), a.getAmount(), a.getRequestedBy(),
-                    "[Manager-approved] " + (a.getRequestNote() == null ? "" : a.getRequestNote()));
+        try {
+            if ("WITHDRAW".equals(a.getRequestType())) {
+                bankingService.withdraw(a.getAccountId(), a.getAmount(), a.getRequestedBy(),
+                        "[Manager-approved] " + (a.getRequestNote() == null ? "" : a.getRequestNote()));
+            } else if ("TRANSFER".equals(a.getRequestType())) {
+                bankingService.transfer(a.getAccountId(), a.getToAccountId(), a.getAmount(), a.getRequestedBy(),
+                        "[Manager-approved] " + (a.getRequestNote() == null ? "" : a.getRequestNote()));
+            }
+        } catch (SQLException | InsufficientFundsException ex) {
+            try (Connection conn = DBConnection.getConnection()) {
+                approvalDAO.revertToPending(conn, approvalId);
+            }
+            throw ex;
         }
 
         try (Connection conn = DBConnection.getConnection()) {
-            approvalDAO.decide(conn, approvalId, "APPROVED", approver.getId(), decisionNote);
             auditService.log(conn, approver.getId(), "APPROVAL_GRANTED", "pending_approval", approvalId, "PENDING", "APPROVED");
         }
     }
 
+    /** Rejects a queued request -- no funds move. Guarded the same way as approve(): the
+     *  request must exist and still be PENDING, and the status transition is claimed
+     *  atomically so a reject() racing against a concurrent approve()/reject() on the same
+     *  request can't silently overwrite an already-decided (and possibly already-executed)
+     *  request. */
     public void reject(int approvalId, User approver, String decisionNote) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
-            approvalDAO.decide(conn, approvalId, "REJECTED", approver.getId(), decisionNote);
-            auditService.log(conn, approver.getId(), "APPROVAL_REJECTED", "pending_approval", approvalId, "PENDING", "REJECTED");
+            PendingApproval a = approvalDAO.findById(conn, approvalId)
+                    .orElseThrow(() -> new IllegalArgumentException("Approval request not found: " + approvalId));
+            if (!"PENDING".equals(a.getStatus())) {
+                throw new IllegalStateException("Request " + approvalId + " already decided");
+            }
+            boolean claimed = approvalDAO.decide(conn, approvalId, "REJECTED", approver.getId(), decisionNote);
+            if (!claimed) {
+                throw new IllegalStateException("Request " + approvalId + " already decided");
+            }
+            auditService.log(conn, approver.getId(), "APPROVAL_REJECTED", "pending_approval", approvalId, a.getStatus(), "REJECTED");
         }
     }
 }

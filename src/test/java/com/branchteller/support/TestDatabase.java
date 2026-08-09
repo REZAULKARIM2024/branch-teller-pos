@@ -419,6 +419,47 @@ public final class TestDatabase {
         }
     }
 
+    /** A date guaranteed (for all practical purposes) not to collide with any other test's
+     *  date in this run -- lets ReportService tests own a whole calendar day exclusively,
+     *  since the shared H2 database otherwise accumulates every other test's transactions
+     *  under today's real wall-clock date. */
+    public static LocalDate uniqueHistoricalDate() {
+        return LocalDate.of(2000, 1, 1).plusDays(nextSeq() % 3650);
+    }
+
+    /** Inserts a transaction row with an explicit created_at, bypassing BankingService/NOW()
+     *  entirely -- needed to test ReportService's day-boundary grouping precisely. */
+    public static void insertTransactionAt(int accountId, String txnType, BigDecimal amount,
+                                            BigDecimal balanceAfter, int tellerId, java.time.LocalDateTime createdAt) throws SQLException {
+        String sql = "INSERT INTO transactions (account_id, txn_type, amount, balance_after, teller_id, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, accountId);
+            ps.setString(2, txnType);
+            ps.setBigDecimal(3, amount);
+            ps.setBigDecimal(4, balanceAfter);
+            ps.setInt(5, tellerId);
+            ps.setTimestamp(6, java.sql.Timestamp.valueOf(createdAt));
+            ps.executeUpdate();
+        }
+    }
+
+    /** Inserts a suspicious_activity_flags row with an explicit flagged_at, bypassing
+     *  AmlService.checkAndFlag()'s NOW()-based timestamp -- needed to test
+     *  ReportService.flagCountForDate()'s day-boundary grouping precisely. */
+    public static void insertFlagAt(int accountId, BigDecimal amount, java.time.LocalDateTime flaggedAt) throws SQLException {
+        String sql = "INSERT INTO suspicious_activity_flags (account_id, reason, amount, flagged_at) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, accountId);
+            ps.setString(2, "Test flag for report boundary check");
+            ps.setBigDecimal(3, amount);
+            ps.setTimestamp(4, java.sql.Timestamp.valueOf(flaggedAt));
+            ps.executeUpdate();
+        }
+    }
+
     /** A ready-to-use test fixture: one branch, one teller user, one VERIFIED customer,
      *  one ACTIVE savings account with the given opening balance. */
     public static Fixture standardFixture(BigDecimal openingBalance) throws SQLException {

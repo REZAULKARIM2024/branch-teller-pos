@@ -389,8 +389,22 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("17. Reports (Manager+)",
                 "<h2>Reports</h2>"
-                + "<p>Summarized daily branch transaction volume and AML activity, exportable for management "
-                + "and regulatory review.</p>");
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p>A daily branch summary computed live from the same data every other module writes to "
+                + "&mdash; nothing here is separately entered, so it always matches the books.</p>"
+                + "<ul>"
+                + "<li>Enter a <b>Date</b> (YYYY-MM-DD, defaults to today) and click <b>Preview</b> to see "
+                + "that day's transactions grouped by type (DEPOSIT, WITHDRAW, TRANSFER_IN, TRANSFER_OUT, "
+                + "etc.), each with a count and a total amount, covering the full calendar day from "
+                + "midnight to midnight.</li>"
+                + "<li>Click <b>Export CSV</b> to save the same summary to a file, plus a TOTAL line "
+                + "(combined count and amount across every type) and a count of AML flags raised that same "
+                + "day &mdash; useful for handing a day's activity to management or a regulator without "
+                + "them needing access to the live system.</li>"
+                + "</ul>"
+                + "<p>This is a simplified daily branch report, not a compliance-grade regulatory filing "
+                + "&mdash; for formal SAR/CTR reporting on a specific suspicious transaction, use the "
+                + "<b>Compliance</b> tab instead.</p>");
 
         // ------------------------------------------------------------------
         // 18. Approvals / Maker-Checker (manager+)

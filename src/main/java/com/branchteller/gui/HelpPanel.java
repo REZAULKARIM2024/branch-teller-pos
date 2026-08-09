@@ -310,21 +310,54 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("14. Interest Accrual (Manager+)",
                 "<h2>Interest Accrual</h2>"
-                + "<p>Run periodic interest accrual for eligible accounts (e.g. SAVINGS). Each account/period "
-                + "combination posts once only &mdash; re-running an already-posted period has no effect, so "
-                + "it's safe to click more than once.</p>");
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p>Enter a period (YYYY-MM, defaults to the current month) and click <b>Run Accrual</b> to "
+                + "post monthly interest to every active savings account:</p>"
+                + "<ul>"
+                + "<li>Each account is checked first &mdash; if this period was already accrued for that "
+                + "account, it is skipped so re-running a period never double-credits interest.</li>"
+                + "<li>Interest is simple interest: balance &times; annual rate% &divide; 12, rounded to the "
+                + "nearest cent.</li>"
+                + "<li>When the amount is greater than zero, the account balance is credited, a deposit "
+                + "transaction and audit log entry are recorded, and the amount is posted to the General "
+                + "Ledger (debiting Interest Expense, crediting Customer Deposits Control) so the books stay "
+                + "balanced.</li>"
+                + "<li>When the amount is zero (a 0% rate or a $0 balance), the period is still marked as "
+                + "accrued for that account, but no balance change, transaction, or ledger entry is written.</li>"
+                + "<li>Every account is posted in its own transaction, so a problem with one account never "
+                + "blocks or rolls back the others.</li>"
+                + "</ul>"
+                + "<p>Click <b>Show History</b> to list every account already accrued for the entered period, "
+                + "ordered by account number, without re-running the job.</p>");
 
         // ------------------------------------------------------------------
         // 15. Accounts & KYC (manager+)
         // ------------------------------------------------------------------
         topics.put("15. Accounts & KYC (Manager+)",
                 "<h2>Accounts &amp; KYC</h2>"
-                + "<ol>"
-                + "<li>Register a new customer with their name, phone, email, and address.</li>"
-                + "<li><b>Verify KYC</b> (or <b>Reject KYC</b>) &mdash; an account can't be opened until KYC "
-                + "is VERIFIED.</li>"
-                + "<li>Once verified, click <b>Open Account...</b> and choose SAVINGS, CURRENT, FD, or RD.</li>"
-                + "</ol>");
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p><b>Register a customer:</b> enter <b>Name</b> and <b>Phone</b> (required), plus optional "
+                + "<b>Email</b> and <b>Address</b>, then click <b>Register</b>. The new customer starts with "
+                + "KYC status <b>PENDING</b> and appears in the table below with their ID, name, phone, "
+                + "email, and a colored KYC status badge. Phone numbers must be unique across all customers.</p>"
+                + "<p><b>Review KYC:</b> select a customer row, then click:</p>"
+                + "<ul>"
+                + "<li><b>Verify KYC</b> &mdash; marks the customer <b>VERIFIED</b>, unlocking account "
+                + "opening for them.</li>"
+                + "<li><b>Reject KYC</b> &mdash; marks the customer <b>REJECTED</b>. A rejected customer "
+                + "cannot have a new account opened; any accounts already opened for them beforehand are "
+                + "not affected or closed.</li>"
+                + "</ul>"
+                + "<p><b>Open Account:</b> select a <b>VERIFIED</b> customer and click <b>Open Account...</b>. "
+                + "Choose an account <b>Type</b> (SAVINGS, CURRENT, FD, or RD) and an <b>Interest Rate</b>, "
+                + "then confirm. A new account is created with a system-generated account number and a "
+                + "zero opening balance; the account number is shown in a confirmation dialog. A customer "
+                + "can have multiple accounts. Attempting this on a customer who is not VERIFIED (still "
+                + "PENDING, or REJECTED) is blocked with an explanatory message instead of opening the "
+                + "account.</p>"
+                + "<p>Every registration, KYC decision, and account opening is written to the <b>Audit "
+                + "Log</b> with the customer's actual before/after status at that moment, so the full "
+                + "onboarding history for a customer can always be traced back accurately.</p>");
 
         // ------------------------------------------------------------------
         // 16. AML Flags (manager+)

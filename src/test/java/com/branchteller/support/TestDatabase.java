@@ -333,6 +333,77 @@ public final class TestDatabase {
         }
     }
 
+    /** The current kyc_status column value for a customer. */
+    public static String kycStatusOf(int customerId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT kyc_status FROM customers WHERE customer_id = ?")) {
+            ps.setInt(1, customerId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getString(1);
+            }
+        }
+    }
+
+    /** The full_name for a customer -- used to confirm a registration's data actually persisted. */
+    public static String fullNameOf(int customerId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT full_name FROM customers WHERE customer_id = ?")) {
+            ps.setInt(1, customerId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getString(1);
+            }
+        }
+    }
+
+    /** The before_value of the most recent audit_trail row for the given entity/action -- lets
+     *  tests confirm the audit trail recorded the actual prior state, not a hardcoded guess. */
+    public static String auditBeforeValue(String entityType, int entityId, String action) throws SQLException {
+        String sql = "SELECT before_value FROM audit_trail WHERE entity_type = ? AND entity_id = ? AND action = ? " +
+                "ORDER BY audit_id DESC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, entityType);
+            ps.setInt(2, entityId);
+            ps.setString(3, action);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
+    }
+
+    /** The after_value of the most recent audit_trail row for the given entity/action. */
+    public static String auditAfterValue(String entityType, int entityId, String action) throws SQLException {
+        String sql = "SELECT after_value FROM audit_trail WHERE entity_type = ? AND entity_id = ? AND action = ? " +
+                "ORDER BY audit_id DESC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, entityType);
+            ps.setInt(2, entityId);
+            ps.setString(3, action);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
+    }
+
+    /** Count of audit_trail rows for a given entity/action -- used to prove a step wrote
+     *  exactly the audit rows it should (not zero, not duplicated). */
+    public static int auditCountFor(String entityType, int entityId, String action) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM audit_trail WHERE entity_type = ? AND entity_id = ? AND action = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, entityType);
+            ps.setInt(2, entityId);
+            ps.setString(3, action);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
     /** A ready-to-use test fixture: one branch, one teller user, one VERIFIED customer,
      *  one ACTIVE savings account with the given opening balance. */
     public static Fixture standardFixture(BigDecimal openingBalance) throws SQLException {

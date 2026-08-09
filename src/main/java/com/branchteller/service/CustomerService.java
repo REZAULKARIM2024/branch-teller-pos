@@ -48,15 +48,19 @@ public class CustomerService {
 
     public void verifyKyc(int customerId, int actorId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            Customer existing = customerDAO.findById(conn, customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             customerDAO.updateKycStatus(conn, customerId, "VERIFIED");
-            auditService.log(conn, actorId, "KYC_VERIFIED", "customer", customerId, "PENDING", "VERIFIED");
+            auditService.log(conn, actorId, "KYC_VERIFIED", "customer", customerId, existing.getKycStatus(), "VERIFIED");
         }
     }
 
     public void rejectKyc(int customerId, int actorId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            Customer existing = customerDAO.findById(conn, customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             customerDAO.updateKycStatus(conn, customerId, "REJECTED");
-            auditService.log(conn, actorId, "KYC_REJECTED", "customer", customerId, "PENDING", "REJECTED");
+            auditService.log(conn, actorId, "KYC_REJECTED", "customer", customerId, existing.getKycStatus(), "REJECTED");
         }
     }
 

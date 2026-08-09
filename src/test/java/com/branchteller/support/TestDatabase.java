@@ -266,6 +266,73 @@ public final class TestDatabase {
         }
     }
 
+    /** Directly flips an account's status (e.g. to "CLOSED"/"INACTIVE") -- used to test that
+     *  jobs like the interest accrual sweep correctly exclude non-ACTIVE accounts. */
+    public static void setAccountStatus(int accountId, String status) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE accounts SET status = ? WHERE account_id = ?")) {
+            ps.setString(1, status);
+            ps.setInt(2, accountId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** The most recently-inserted transaction id for an account matching an exact note --
+     *  lets tests find "their" transaction (e.g. an interest-accrual deposit) without the
+     *  service under test having to hand back an id it doesn't otherwise expose. */
+    public static Integer transactionIdFor(int accountId, String note) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT txn_id FROM transactions WHERE account_id = ? AND note = ? ORDER BY txn_id DESC LIMIT 1")) {
+            ps.setInt(1, accountId);
+            ps.setString(2, note);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
+    }
+
+    /** The debit leg (if any) that a given transaction posted to a given GL account code. */
+    public static BigDecimal glDebitForTxnAndCode(int txnId, String glCode) throws SQLException {
+        String sql = "SELECT ge.debit FROM gl_entries ge JOIN gl_accounts ga ON ga.gl_account_id = ge.gl_account_id " +
+                "WHERE ge.txn_id = ? AND ga.code = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, txnId);
+            ps.setString(2, glCode);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : null;
+            }
+        }
+    }
+
+    /** The credit leg (if any) that a given transaction posted to a given GL account code. */
+    public static BigDecimal glCreditForTxnAndCode(int txnId, String glCode) throws SQLException {
+        String sql = "SELECT ge.credit FROM gl_entries ge JOIN gl_accounts ga ON ga.gl_account_id = ge.gl_account_id " +
+                "WHERE ge.txn_id = ? AND ga.code = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, txnId);
+            ps.setString(2, glCode);
+            try (var rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : null;
+            }
+        }
+    }
+
+    /** Count of gl_entries rows posted for a given transaction -- used to prove that when
+     *  interest is zero, no GL legs are written at all (not even zero-amount ones). */
+    public static int glEntryCountForTxn(int txnId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM gl_entries WHERE txn_id = ?")) {
+            ps.setInt(1, txnId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
     /** A ready-to-use test fixture: one branch, one teller user, one VERIFIED customer,
      *  one ACTIVE savings account with the given opening balance. */
     public static Fixture standardFixture(BigDecimal openingBalance) throws SQLException {

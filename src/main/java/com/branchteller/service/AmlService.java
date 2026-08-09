@@ -19,6 +19,7 @@ public class AmlService {
     public static final BigDecimal REPORTING_THRESHOLD = BigDecimal.valueOf(10000);
 
     private final AmlDAO amlDAO = new AmlDAO();
+    private final AuditService auditService = new AuditService();
 
     /** Call from inside an existing transaction so the flag commits atomically with the txn it describes. */
     public void checkAndFlag(Connection conn, int accountId, Integer txnId, BigDecimal amount, String txnType) throws SQLException {
@@ -46,7 +47,11 @@ public class AmlService {
 
     public void markReviewed(int flagId, int reviewerId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
-            amlDAO.markReviewed(conn, flagId, reviewerId);
+            boolean updated = amlDAO.markReviewed(conn, flagId, reviewerId);
+            if (!updated) {
+                throw new IllegalArgumentException("AML flag not found: " + flagId);
+            }
+            auditService.log(conn, reviewerId, "AML_FLAG_REVIEWED", "aml_flag", flagId, "UNREVIEWED", "REVIEWED");
         }
     }
 }

@@ -404,6 +404,21 @@ public final class TestDatabase {
         }
     }
 
+    /** Count of suspicious_activity_flags rows for a given account -- lets AML tests use a
+     *  fresh, test-owned account id to check "no flag was created" without interference from
+     *  flags other tests create in this same shared database. */
+    public static int flagCountForAccount(int accountId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT COUNT(*) FROM suspicious_activity_flags WHERE account_id = ?")) {
+            ps.setInt(1, accountId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
     /** A ready-to-use test fixture: one branch, one teller user, one VERIFIED customer,
      *  one ACTIVE savings account with the given opening balance. */
     public static Fixture standardFixture(BigDecimal openingBalance) throws SQLException {

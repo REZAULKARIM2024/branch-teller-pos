@@ -364,16 +364,25 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("16. AML Flags (Manager+)",
                 "<h2>AML Flags</h2>"
-                + "<p>Any single cash transaction at or above the reporting threshold is flagged automatically "
-                + "for manual review &mdash; a simplified stand-in for real Currency Transaction Report (CTR) "
-                + "logic.</p>"
-                + "<ol>"
-                + "<li>Review flagged transactions in the table (check \"Unreviewed only\" to focus on what's "
-                + "left to do).</li>"
-                + "<li>Investigate, then click <b>Mark Reviewed</b>.</li>"
-                + "<li>For anything serious enough to formally report, go to <b>Compliance</b> and file a "
-                + "SAR/CTR against the same flag.</li>"
-                + "</ol>");
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p>Any single cash-touching transaction &mdash; a deposit, a withdrawal, or the outgoing "
+                + "leg of a transfer &mdash; at or above the $10,000 reporting threshold is flagged "
+                + "automatically the instant it posts, in the same database transaction as the money "
+                + "movement itself. This is a simplified stand-in for real Currency Transaction Report "
+                + "(CTR) logic. The incoming side of an internal transfer is not separately flagged.</p>"
+                + "<ul>"
+                + "<li><b>Unreviewed only</b> (checked by default) shows just the flags still waiting on "
+                + "you; uncheck it and click <b>Refresh</b> to see the full history, reviewed and "
+                + "unreviewed, most recent first.</li>"
+                + "<li>Each row shows the account, a reason describing which transaction type and amount "
+                + "triggered it, the amount, when it was flagged, and whether it's been reviewed.</li>"
+                + "<li>Select a flag and click <b>Mark Reviewed</b> once you've investigated it. This "
+                + "records who reviewed it and when, removes it from the unreviewed queue, and is itself "
+                + "written to the <b>Audit Log</b> so every review decision stays traceable.</li>"
+                + "</ul>"
+                + "<p>For anything serious enough to formally report, go to <b>Compliance</b> and file a "
+                + "SAR (Suspicious Activity Report) or CTR (Currency Transaction Report) against the same "
+                + "flag &mdash; filing a report there also marks the flag reviewed automatically.</p>");
 
         // ------------------------------------------------------------------
         // 17. Reports (manager+)

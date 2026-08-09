@@ -34,12 +34,13 @@ public class AmlDAO {
         return query(conn, sql, ps -> ps.setInt(1, limit));
     }
 
-    public void markReviewed(Connection conn, int flagId, int reviewerId) throws SQLException {
+    /** @return true if a flag with this id existed and was updated; false if flagId matched no row. */
+    public boolean markReviewed(Connection conn, int flagId, int reviewerId) throws SQLException {
         String sql = "UPDATE suspicious_activity_flags SET reviewed = TRUE, reviewed_by = ?, review_date = NOW() WHERE flag_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, reviewerId);
             ps.setInt(2, flagId);
-            ps.executeUpdate();
+            return ps.executeUpdate() > 0;
         }
     }
 

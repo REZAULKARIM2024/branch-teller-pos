@@ -228,6 +228,36 @@ public final class TestDatabase {
                     "('John Doe PEP', 'PEP', 'Sample politically-exposed-person test entry'), " +
                     "('Jane Smith PEP', 'PEP', 'Sample politically-exposed-person test entry')");
 
+            st.execute("CREATE TABLE loans (" +
+                    "loan_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "customer_id INT NOT NULL, " +
+                    "account_id INT NOT NULL, " +
+                    "loan_type VARCHAR(50) NOT NULL, " +
+                    "principal DECIMAL(15,2) NOT NULL, " +
+                    "interest_rate DECIMAL(5,2) NOT NULL, " +
+                    "tenure_months INT NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'APPLIED', " +
+                    "applied_date DATE NOT NULL, " +
+                    "approved_by INT NULL, " +
+                    "disbursed_date DATE NULL)");
+
+            st.execute("CREATE TABLE loan_repayments (" +
+                    "repayment_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "loan_id INT NOT NULL, " +
+                    "installment_no INT NOT NULL, " +
+                    "due_date DATE NOT NULL, " +
+                    "amount_due DECIMAL(15,2) NOT NULL, " +
+                    "amount_paid DECIMAL(15,2) NOT NULL DEFAULT 0.00, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'PENDING', " +
+                    "paid_date DATE NULL)");
+
+            st.execute("CREATE TABLE credit_score_history (" +
+                    "history_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "customer_id INT NOT NULL, " +
+                    "score INT NOT NULL, " +
+                    "rating VARCHAR(20) NOT NULL, " +
+                    "computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +
@@ -361,6 +391,67 @@ public final class TestDatabase {
             ps.setString(1, status);
             ps.setInt(2, accountId);
             ps.executeUpdate();
+        }
+    }
+
+    /** Backdates an account's opened_date -- insertAccount() always stamps "today", so
+     *  CreditScoreService tests that need to control relationship tenure (months since the
+     *  earliest account was opened) must move the date back explicitly after inserting. */
+    public static void setAccountOpenedDate(int accountId, LocalDate openedDate) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE accounts SET opened_date = ? WHERE account_id = ?")) {
+            ps.setDate(1, java.sql.Date.valueOf(openedDate));
+            ps.setInt(2, accountId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Inserts a loan in DISBURSED status for a customer/account -- bypasses LoanService (which
+     *  is exercised directly elsewhere), needed only as a parent row for loan_repayments so
+     *  CreditScoreService's on-time-ratio calculation has something to query against. */
+    public static int insertLoan(int customerId, int accountId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO loans (customer_id, account_id, loan_type, principal, interest_rate, tenure_months, status, applied_date) " +
+                             "VALUES (?, ?, 'PERSONAL', 5000.00, 8.00, 12, 'DISBURSED', ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, customerId);
+            ps.setInt(2, accountId);
+            ps.setDate(3, java.sql.Date.valueOf(LocalDate.now().minusYears(1)));
+            ps.executeUpdate();
+            return generatedId(ps);
+        }
+    }
+
+    /** Inserts a loan_repayments row with an explicit status/due/paid date -- lets
+     *  CreditScoreIntegrationTest construct exact, known on-time-repayment ratios. Pass
+     *  paidDate == null for a repayment that hasn't been paid (e.g. status "OVERDUE" or "PENDING"). */
+    public static void insertRepayment(int loanId, int installmentNo, LocalDate dueDate, String status, LocalDate paidDate) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO loan_repayments (loan_id, installment_no, due_date, amount_due, amount_paid, status, paid_date) " +
+                             "VALUES (?, ?, ?, 500.00, ?, ?, ?)")) {
+            ps.setInt(1, loanId);
+            ps.setInt(2, installmentNo);
+            ps.setDate(3, java.sql.Date.valueOf(dueDate));
+            ps.setBigDecimal(4, paidDate == null ? BigDecimal.ZERO : new BigDecimal("500.00"));
+            ps.setString(5, status);
+            if (paidDate == null) ps.setNull(6, java.sql.Types.DATE); else ps.setDate(6, java.sql.Date.valueOf(paidDate));
+            ps.executeUpdate();
+        }
+    }
+
+    /** The customers.credit_score column value -- lets tests confirm computeScore() actually
+     *  persisted the score onto the customer record, not just into credit_score_history. */
+    public static Integer creditScoreOf(int customerId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT credit_score FROM customers WHERE customer_id = ?")) {
+            ps.setInt(1, customerId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                int v = rs.getInt(1);
+                return rs.wasNull() ? null : v;
+            }
         }
     }
 

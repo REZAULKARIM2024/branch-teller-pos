@@ -534,14 +534,35 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("22. Credit Scoring (Manager+)",
                 "<h2>Credit Scoring / Underwriting</h2>"
-                + "<p>Computes a simplified 300&ndash;850 score from relationship tenure, balances held, "
-                + "on-time loan repayment history, KYC status, and any AML flags.</p>"
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p>Computes a simplified 300&ndash;850 score, in the same familiar range as a real bureau "
+                + "score, but built transparently from data already in this system rather than an external "
+                + "bureau feed:</p>"
+                + "<ul>"
+                + "<li><b>Balance held</b> &mdash; up to 150 points, reaching the full 150 once the customer's "
+                + "combined active-account balance hits $50,000 (no extra credit for more than that).</li>"
+                + "<li><b>Relationship tenure</b> &mdash; up to 120 points, reaching the full 120 once their "
+                + "oldest account has been open 10 years.</li>"
+                + "<li><b>On-time loan repayment history</b> &mdash; up to 200 points, scaled by the fraction "
+                + "of their due installments paid on or before the due date. A customer who has never taken a "
+                + "loan gets the full 200 here too (there's nothing to hold against them yet) &mdash; so a "
+                + "clean no-history customer scores the same as a flawless repayer, and strictly better than "
+                + "anyone who has actually paid late or missed a payment.</li>"
+                + "<li><b>KYC verified</b> &mdash; a flat 60 points.</li>"
+                + "<li>Plus a flat 20-point base, and <b>minus 40 points for every AML flag</b> on the "
+                + "customer's accounts (reviewed or not).</li>"
+                + "</ul>"
+                + "<p>The total is floored at 300 and capped at 850, then rated POOR (under 580), FAIR "
+                + "(580&ndash;669), GOOD (670&ndash;739), VERY_GOOD (740&ndash;799), or EXCELLENT (800+).</p>"
                 + "<ol>"
                 + "<li>Enter a <b>Customer ID</b> and click <b>Compute Score</b>.</li>"
-                + "<li>The result and rating (POOR/FAIR/GOOD/VERY_GOOD/EXCELLENT) are shown and saved to "
-                + "history, and to the customer's record for reference during loan review.</li>"
+                + "<li>The result and rating are shown immediately, saved permanently to that customer's score "
+                + "history (each computation adds a new row, it never overwrites the last one), and saved to "
+                + "the customer's own record. All three writes happen together, so the history and the "
+                + "customer's stored score can never disagree about what the latest score was.</li>"
                 + "</ol>"
-                + "<p>Treat this as one input into a lending decision, not an automatic approve/deny.</p>");
+                + "<p>The table below shows the most recent computations across all customers. Treat the score "
+                + "as one input into a lending decision, not an automatic approve/deny.</p>");
 
         // ------------------------------------------------------------------
         // 23. Audit Log (admin)

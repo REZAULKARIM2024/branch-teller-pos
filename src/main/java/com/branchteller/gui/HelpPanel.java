@@ -1,23 +1,30 @@
 package com.branchteller.gui;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
-/** Interactive help browser: a topic list on the left, HTML guide content on the right.
- *  Ordered as a beginning-to-end manual, roughly following the tab order in MainFrame,
- *  so a new user can read top-to-bottom and learn the whole application. */
+/** Interactive help browser: a search box and topic list on the left, HTML guide content on
+ *  the right. Topics are ordered as a beginning-to-end manual, roughly following the tab
+ *  order in MainFrame, so a new user can read top-to-bottom and learn the whole application. */
 public class HelpPanel extends JPanel {
 
     private final Map<String, String> topics = new LinkedHashMap<>();
     private final JEditorPane contentPane = new JEditorPane();
+    private final DefaultListModel<String> listModel = new DefaultListModel<>();
+    private final JList<String> topicList = new JList<>(listModel);
+    private final JTextField searchField = new JTextField();
 
     public HelpPanel() {
         setLayout(new BorderLayout());
         buildTopics();
 
-        JList<String> topicList = new JList<>(topics.keySet().toArray(new String[0]));
+        topicList.setName("helpTopicList");
         topicList.setBackground(UITheme.BG_LIGHT);
         topicList.setSelectionBackground(UITheme.ACCENT);
         topicList.setSelectionForeground(Color.WHITE);
@@ -30,12 +37,29 @@ public class HelpPanel extends JPanel {
             }
         });
 
+        searchField.setName("helpSearchField");
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { refreshList(); }
+            public void removeUpdate(DocumentEvent e) { refreshList(); }
+            public void changedUpdate(DocumentEvent e) { refreshList(); }
+        });
+
+        JPanel searchPanel = new JPanel(new BorderLayout());
+        searchPanel.setBackground(UITheme.BG_LIGHT);
+        searchPanel.setBorder(BorderFactory.createEmptyBorder(8, 10, 4, 10));
+        JLabel searchLabel = new JLabel("Search:");
+        searchLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+        searchPanel.add(searchLabel, BorderLayout.WEST);
+        searchPanel.add(searchField, BorderLayout.CENTER);
+
         JPanel leftPanel = new JPanel(new BorderLayout());
         leftPanel.setBackground(UITheme.BG_LIGHT);
         leftPanel.setBorder(BorderFactory.createTitledBorder("Topics (read top to bottom for a full walkthrough)"));
+        leftPanel.add(searchPanel, BorderLayout.NORTH);
         leftPanel.add(new JScrollPane(topicList), BorderLayout.CENTER);
         leftPanel.setPreferredSize(new Dimension(260, 0));
 
+        contentPane.setName("helpContentPane");
         contentPane.setContentType("text/html");
         contentPane.setEditable(false);
         contentPane.setBackground(UITheme.PANEL_WHITE);
@@ -48,7 +72,50 @@ public class HelpPanel extends JPanel {
         split.setBorder(BorderFactory.createEmptyBorder());
         add(split, BorderLayout.CENTER);
 
+        refreshList();
         topicList.setSelectedIndex(0);
+    }
+
+    /** Re-applies the current search text to the topic list, preserving the selection when the
+     *  selected topic still matches, and otherwise falling back to the first visible match. */
+    private void refreshList() {
+        String previouslySelected = topicList.getSelectedValue();
+        List<String> matches = matchingTopics(topics, searchField.getText());
+
+        listModel.clear();
+        for (String key : matches) listModel.addElement(key);
+
+        if (previouslySelected != null && matches.contains(previouslySelected)) {
+            topicList.setSelectedValue(previouslySelected, true);
+        } else if (!matches.isEmpty()) {
+            topicList.setSelectedIndex(0);
+        }
+    }
+
+    /**
+     * QA finding (fixed): with 27+ topics and no search box, finding a specific topic meant
+     * scrolling and scanning the whole list by eye every time -- a real usability gap for a
+     * help screen whose whole job is helping someone find an answer quickly. This is the pure
+     * filtering logic behind the new search box, kept as a standalone static method (no Swing
+     * dependency) so it can be unit-tested directly -- see HelpTopicFilterTest.
+     *
+     * <p>Matches are case-insensitive and match against both the topic title and its body text,
+     * so searching "payroll" finds "24. Employees &amp; Payroll (Admin)" by title, while
+     * searching "routing code" finds "25. Branches (Admin)" by body content even though the
+     * word "routing" never appears in that topic's title. A blank/whitespace-only query returns
+     * every topic, in original order.</p>
+     */
+    static List<String> matchingTopics(Map<String, String> topics, String query) {
+        String q = query == null ? "" : query.trim().toLowerCase();
+        List<String> result = new ArrayList<>();
+        for (Map.Entry<String, String> entry : topics.entrySet()) {
+            if (q.isEmpty()
+                    || entry.getKey().toLowerCase().contains(q)
+                    || entry.getValue().toLowerCase().contains(q)) {
+                result.add(entry.getKey());
+            }
+        }
+        return result;
     }
 
     private void showTopic(String topic) {
@@ -673,6 +740,30 @@ public class HelpPanel extends JPanel {
                 + "requires direct database access.</p>");
 
         // ------------------------------------------------------------------
+        // 27. Using This Help Screen
+        // ------------------------------------------------------------------
+        topics.put("27. Using This Help Screen",
+                "<h2>Using This Help Screen</h2>"
+                + "<p><b>Who can access:</b> Everyone, at every role.</p>"
+                + "<p>This screen has two parts: the topic list on the left, and this content pane on the "
+                + "right. Click any topic to load its guide here &mdash; nothing is saved or changed by "
+                + "reading a topic, so feel free to click around freely.</p>"
+                + "<ul>"
+                + "<li>Topics are ordered top to bottom to roughly match the tab order in the rest of the "
+                + "app, so a brand-new user can read straight down the list and learn the whole application "
+                + "in one pass.</li>"
+                + "<li>Use the <b>Search</b> box above the topic list to jump straight to what you need "
+                + "instead of scrolling &mdash; it filters as you type, matching both a topic's title and its "
+                + "full text. For example, typing <i>routing code</i> finds the Branches topic even though "
+                + "the word \"routing\" doesn't appear in that topic's title.</li>"
+                + "<li>Clear the search box to see the full topic list again.</li>"
+                + "</ul>"
+                + "<p>Every topic here is written from, and checked against, the actual behavior of this "
+                + "application &mdash; where a feature has a real limitation (for example, the account-lockout "
+                + "gap noted in <b>Security</b>), the topic says so plainly instead of describing how the "
+                + "screen \"should\" work.</p>");
+
+        // ------------------------------------------------------------------
         // FAQ
         // ------------------------------------------------------------------
         topics.put("FAQ / Troubleshooting",
@@ -696,8 +787,10 @@ public class HelpPanel extends JPanel {
                 + "<p><b>Q: I was logged out while working.</b><br>"
                 + "Sessions time out automatically after 10 minutes of inactivity for security. Just log back in.</p>"
                 + "<p><b>Q: I forgot my password.</b><br>"
-                + "Ask an administrator to reset it &mdash; there's no self-service reset without knowing the "
-                + "current password.</p>");
+                + "There is currently no self-service or in-app admin reset &mdash; <b>Security</b>'s "
+                + "Change Password form always requires your current password. Recovering a genuinely "
+                + "forgotten password today requires direct database access, the same as unlocking a "
+                + "locked account (see the note at the end of <b>Security</b>).</p>");
 
         // ------------------------------------------------------------------
         // Contact

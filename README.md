@@ -414,10 +414,19 @@ run_api_server.bat
 # terminal 2
 run_frontend.bat
 # terminal 3
-mvn test -Dgroups=web-automation
+mvn test -DexcludedGroups= -Dgroups=web-automation
 # or, to watch the browser drive itself instead of headless:
-mvn test -Dgroups=web-automation -Dautomation.headless=false
+mvn test -DexcludedGroups= -Dgroups=web-automation -Dautomation.headless=false
 ```
+
+QA finding (fixed): `-DexcludedGroups=` (blank, clearing the pom's default exclusion) is
+required here, not just `-Dgroups=web-automation` on its own. In JUnit5 tag filtering an
+excluded tag always wins over an included one, and this project's `excludedGroups` used to
+be hardcoded as a literal in `pom.xml` rather than exposed as an overridable property --
+so `-Dgroups=web-automation` alone silently ran 0 tests (no error, just an empty "Tests
+run: 0" that's easy to mistake for "no tests matched -Dtest"). Fixed by moving the value
+into a `${excludedGroups}` property with the same default, which the command line can now
+actually override.
 
 **Desktop UI automation (AssertJ-Swing)** — `LoginDesktopTest` launches the actual
 `LoginFrame` class in-process (not a rewritten test double) and drives its real Swing
@@ -426,11 +435,18 @@ components, found via `setName(...)` calls added to `usernameField` / `passwordF
 (submitting with both fields empty → the warning `JOptionPane`) rather than a real
 login, so it has no MySQL dependency and passes regardless of what's seeded:
 
+`HelpDesktopTest` covers the same real-component pattern for `HelpPanel`'s search box
+(typing into the real `JTextField` narrows the real `JList`, matching both topic titles
+and body text -- see the Help topic in-app for the underlying gap this feature closes).
+
 ```bash
-mvn test -Dgroups=desktop-automation
+mvn test -DexcludedGroups= -Dgroups=desktop-automation
 # headless Linux (e.g. inside a container/CI): wrap with a virtual display
-xvfb-run -a mvn test -Dgroups=desktop-automation
+xvfb-run -a mvn test -DexcludedGroups= -Dgroups=desktop-automation
 ```
+
+(See the QA finding noted just above under Web UI automation -- the same hardcoded-
+`excludedGroups` bug blocked this command too; `-DexcludedGroups=` is what makes it work.)
 
 Why keep (2) and (3) out of the default `mvn verify`: GitHub-hosted CI runners don't
 have the frontend built-and-served or a display attached without extra setup, and

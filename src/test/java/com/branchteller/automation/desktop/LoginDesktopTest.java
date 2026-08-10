@@ -22,8 +22,17 @@ import org.junit.jupiter.api.Test;
  * {@code excludedGroups}) because Swing needs a real or virtual display, which a
  * bare GitHub-hosted Linux runner doesn't have by default.</p>
  *
- * <p>Run with: {@code mvn test -Dgroups=desktop-automation}.
- * On headless Linux, wrap with Xvfb: {@code xvfb-run -a mvn test -Dgroups=desktop-automation}.</p>
+ * <p>Run with: {@code mvn test -DexcludedGroups= -Dgroups=desktop-automation}.
+ * On headless Linux, wrap with Xvfb:
+ * {@code xvfb-run -a mvn test -DexcludedGroups= -Dgroups=desktop-automation}.
+ * QA finding (fixed elsewhere in this project): the {@code -DexcludedGroups=} (blank) part
+ * is required, not optional -- pom.xml's {@code excludedGroups} used to be a hardcoded
+ * literal that already excluded this same {@code desktop-automation} tag, and in JUnit5 an
+ * excluded tag always beats an included one. That meant {@code -Dgroups=desktop-automation}
+ * alone silently ran 0 tests here (and for {@code HelpDesktopTest}) with no error -- just a
+ * quiet "Tests run: 0" that looked like a {@code -Dtest} typo rather than a broken opt-in
+ * switch. Fixed by moving that value into an overridable {@code ${excludedGroups}}
+ * property, default unchanged, so this command now actually works.</p>
  */
 @Tag("desktop-automation")
 class LoginDesktopTest {

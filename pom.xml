@@ -12,6 +12,19 @@
     <allure.version>2.29.0</allure.version>
     <cucumber.version>7.18.1</cucumber.version>
     <junit-platform-suite.version>1.10.2</junit-platform-suite.version>
+    <!-- QA finding (fixed): this used to be hardcoded directly as a literal string inside
+         maven-surefire-plugin's <configuration><excludedGroups> below. In JUnit5 tag
+         filtering, an excluded tag always wins over an included one, so as long as that
+         literal was present, `mvn test -Dgroups=desktop-automation` (the exact command this
+         project's own README and LoginDesktopTest/HelpDesktopTest javadocs instruct people to
+         run) could never actually run a single desktop-automation test; it silently printed
+         "Tests run: 0" instead of running or reporting an error, so the gap was easy to miss.
+         Same problem for -Dgroups=web-automation. Moving the value into this property and
+         referencing ${excludedGroups} below keeps the default `mvn verify`/`mvn test` behavior
+         identical (both opt-in groups still excluded by default), while letting the command
+         line actually override it, e.g.:
+           mvn test -DexcludedGroups= -Dgroups=desktop-automation -Dtest=HelpDesktopTest -->
+    <excludedGroups>web-automation,desktop-automation</excludedGroups>
   </properties>
 
   <dependencies>
@@ -169,9 +182,11 @@
           <!-- web-automation (Selenium) and desktop-automation (AssertJ-Swing) need a real
                browser / display and are excluded from the default run; api-automation
                (RestAssured) needs neither, so it runs alongside the rest of the suite.
-               Run the excluded groups explicitly with -Dgroups=web-automation or
-               -Dgroups=desktop-automation once their prerequisites are met; see README. -->
-          <excludedGroups>web-automation,desktop-automation</excludedGroups>
+               Value comes from the ${excludedGroups} property above (not hardcoded here)
+               specifically so it can be overridden from the command line; see that
+               property's javadoc-style comment for the bug this fixes and the working
+               command; see README for the full opt-in instructions. -->
+          <excludedGroups>${excludedGroups}</excludedGroups>
         </configuration>
       </plugin>
 

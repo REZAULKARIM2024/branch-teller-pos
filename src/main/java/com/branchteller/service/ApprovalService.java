@@ -74,7 +74,18 @@ public class ApprovalService {
      * (approved, rejected, or claimed by a concurrent approve() call right now) and this
      * throws immediately without touching any funds. If the claim succeeds but the money
      * movement then fails (e.g. insufficient funds), the claim is reverted back to PENDING
-     * so the request isn't stuck in a decided state with no funds actually moved. */
+     * so the request isn't stuck in a decided state with no funds actually moved.
+     *
+     * <p>QA finding (fixed): the revert-on-failure catch below used to only catch {@code
+     * SQLException} and {@code InsufficientFundsException} -- the two failure modes anticipated
+     * when this was written. But {@code BankingService.withdraw}/{@code transfer} can also throw
+     * an unchecked {@code IllegalArgumentException} (account not found, or -- since the CLOSED-
+     * account guard was added -- the account being CLOSED), and that type slipped straight
+     * through this catch, uncaught, leaving the request stuck claimed as APPROVED with no
+     * revert and no funds moved: a real hole in the exact safety net this method's own javadoc
+     * promises. Broadened to catch any {@code RuntimeException} too, so this guarantee actually
+     * holds for every way the money movement can fail, not just the two originally anticipated
+     * ones. */
     public void approve(int approvalId, User approver, String decisionNote) throws SQLException, InsufficientFundsException {
         PendingApproval a;
         try (Connection conn = DBConnection.getConnection()) {
@@ -97,7 +108,7 @@ public class ApprovalService {
                 bankingService.transfer(a.getAccountId(), a.getToAccountId(), a.getAmount(), a.getRequestedBy(),
                         "[Manager-approved] " + (a.getRequestNote() == null ? "" : a.getRequestNote()));
             }
-        } catch (SQLException | InsufficientFundsException ex) {
+        } catch (RuntimeException | SQLException | InsufficientFundsException ex) {
             try (Connection conn = DBConnection.getConnection()) {
                 approvalDAO.revertToPending(conn, approvalId);
             }

@@ -201,6 +201,13 @@ public class TellerPanel extends JPanel {
             printReceiptBtn.setEnabled(true);
         } catch (InsufficientFundsException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("teller.insufficientFundsTitle"), JOptionPane.ERROR_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): BankingService's CLOSED-account guard (and its pre-existing
+            // "account not found" guard) throws IllegalArgumentException, which nothing here
+            // used to catch -- it would propagate out of this listener uncaught instead of
+            // showing the teller a clear message, the same gap BranchesPanel was fixed for
+            // earlier in this project.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

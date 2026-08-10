@@ -85,6 +85,14 @@ public class ApprovalsPanel extends JPanel {
             loadPending();
         } catch (InsufficientFundsException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("approvals.cannotExecutePrefix") + ex.getMessage(), Messages.tr("payments.insufficientFundsTitle"), JOptionPane.ERROR_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): approve() can now also fail with IllegalArgumentException
+            // (e.g. the account was CLOSED after the request was queued) -- previously
+            // uncaught here, it would have propagated out of this button handler instead of
+            // showing the manager a clear message. ApprovalService.approve() already reverts
+            // the request back to PENDING before this exception reaches here, so no funds
+            // moved and the request is still safely sitting in the queue for a decision.
+            JOptionPane.showMessageDialog(this, Messages.tr("approvals.cannotExecutePrefix") + ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

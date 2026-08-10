@@ -32,6 +32,31 @@ public class BankingService {
         }
     }
 
+    /**
+     * QA finding (fixed): {@code Account.status} (ACTIVE / DORMANT / CLOSED) was displayed to
+     * the teller in {@code TellerPanel}'s account-info label and printed on Correspondence
+     * letters, but nothing anywhere in the application actually enforced it -- deposit(),
+     * withdraw(), and transfer() would happily move money into or out of a CLOSED account,
+     * and there wasn't even a way to close an account in the first place ({@code AccountDAO}
+     * has no {@code updateStatus}/{@code close} method at all), so this could only have been
+     * exercised by directly flipping the status in the database, which is exactly how {@code
+     * BankingServiceValidationTest} and {@code EndToEndFlowTest}'s existing coverage would
+     * have missed it entirely -- confirmed by grepping the whole test suite for "CLOSED" and
+     * finding only {@code InterestAccrualIntegrationTest}, which checks a completely different
+     * job (the interest sweep already correctly skips non-ACTIVE accounts).
+     *
+     * <p>DORMANT is deliberately still allowed: in real banking, transacting on a dormant
+     * account is typically how it gets reactivated, so blocking it here would be the wrong
+     * fix. Only CLOSED is treated as a hard stop, on every side of the money movement --
+     * including the destination account of a transfer, not just the source.</p>
+     */
+    private void requireNotClosed(Account acct, String action) {
+        if ("CLOSED".equals(acct.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Account " + acct.getAccountNumber() + " is closed and cannot " + action);
+        }
+    }
+
     public BigDecimal availableBalance(int accountId, BigDecimal balance) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             return balance.subtract(holdService.activeHoldsTotal(conn, accountId));
@@ -46,6 +71,7 @@ public class BankingService {
             try {
                 Account acct = accountDAO.findByIdForUpdate(conn, accountId)
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+                requireNotClosed(acct, "accept a deposit");
 
                 BigDecimal newBalance = acct.getBalance().add(amount);
                 accountDAO.updateBalance(conn, accountId, newBalance);
@@ -80,6 +106,7 @@ public class BankingService {
             try {
                 Account acct = accountDAO.findByIdForUpdate(conn, accountId)
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+                requireNotClosed(acct, "be withdrawn from");
 
                 BigDecimal held = holdService.activeHoldsTotal(conn, accountId);
                 BigDecimal available = acct.getBalance().subtract(held);
@@ -135,6 +162,8 @@ public class BankingService {
                         .orElseThrow(() -> new IllegalArgumentException("Source account not found: " + fromAccountId));
                 Account to = accountDAO.findByIdForUpdate(conn, toAccountId)
                         .orElseThrow(() -> new IllegalArgumentException("Destination account not found: " + toAccountId));
+                requireNotClosed(from, "send a transfer");
+                requireNotClosed(to, "receive a transfer");
 
                 BigDecimal held = holdService.activeHoldsTotal(conn, fromAccountId);
                 BigDecimal available = from.getBalance().subtract(held);

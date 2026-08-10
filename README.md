@@ -96,7 +96,7 @@ flowchart TB
     DAO --> DB
 
     subgraph DevOps["Build, Test & Deploy"]
-        Tests["JUnit 5 + Cucumber + RestAssured + H2<br/>156 automated tests"]
+        Tests["JUnit 5 + Cucumber + RestAssured + H2<br/>388 automated tests"]
         CI["GitHub Actions CI<br/>mvn verify on every push"]
         Docker["Docker Compose<br/>mysql + api services"]
     end
@@ -132,6 +132,7 @@ from a browser, with a live API/DB health banner:
 ### Cash & Branch Operations
 - Cash drawer paid-in/paid-out/no-sale/till-count logging.
 - Cheque deposit → clearing/bounce queue.
+- Account holds/liens (fraud investigation, court order, uncleared cheque) that restrict available balance without freezing the whole account.
 - Receipt and statement printing, and a bank-letter Correspondence module.
 - Multi-branch support.
 
@@ -150,6 +151,7 @@ from a browser, with a live API/DB health banner:
 
 ### Platform Operations
 - Card issuance/management, standing instructions (auto-pay), customer notifications, employee records + payroll, and a simulated external payment network.
+- A read-only Products & Services reference tab (own branding) so tellers can look up the bank's personal/business/commercial offerings by category.
 - 5-locale i18n (English, Bangla, Arabic, Spanish, French).
 - A REST API surface and a React web console covering account lookup, teller deposit/withdraw, the customer list, and the GL trial balance.
 
@@ -264,7 +266,7 @@ src/main/java/com/branchteller/
   model/     Domain objects (Account, Customer, Transaction, Loan, GlAccount, ...) — 29 classes
   dao/       Plain-JDBC data access objects — 26 classes
   service/   Business logic — BankingService, GlService, AmlService, LoanService,
-             InterestService, ApprovalService, ComplianceService, PayrollService, ... — 24 classes
+             InterestService, ApprovalService, ComplianceService, PayrollService, ... — 25 classes
   gui/       Swing panels — one per feature area (30 classes total)
   api/       ApiServer (REST/JSON), Json (hand-rolled reader/writer)
   i18n/      Messages.java — locale loader for the 5 message bundles
@@ -316,6 +318,7 @@ Key tables in `branch_teller` (60+ total; grouped here by feature area):
 | Customers & accounts | `customers`, `accounts`, `transactions` |
 | KYC & audit | `kyc_status` fields on `customers`, `audit_log` |
 | Cash & cheques | `cash_drawer_log`, `cheques` |
+| Holds & liens | `account_holds` |
 | Loans | `loans`, `loan_repayments` |
 | Interest | `interest_accruals` |
 | General ledger | `gl_accounts`, `gl_journal`, `gl_entry_lines` |
@@ -329,7 +332,7 @@ complete definitions.
 
 ## Testing
 
-156 automated tests across three engines, all run by a single command (and in CI on
+388 automated tests across three engines, all run by a single command (and in CI on
 every push via `.github/workflows/ci.yml`):
 
 ```bash
@@ -345,11 +348,16 @@ mvn verify
 | Web UI automation (Selenium) | `mvn test -Dgroups=web-automation` | Opt-in — needs `run_api_server.bat` + `run_frontend.bat` running first |
 | Desktop UI automation (AssertJ-Swing) | `mvn test -Dgroups=desktop-automation` | Opt-in — needs a display (or `xvfb-run` on headless Linux) |
 
-- **JUnit 5** (130 tests) — pure-logic unit tests (interest math, approval thresholds,
+- **JUnit 5** (362 tests) — pure-logic unit tests (interest math, approval thresholds,
   password hashing, role permissions), H2-backed integration tests (general ledger
   posting/trial-balance correctness, full deposit/withdraw/transfer/AML/approval/
   interest-accrual flows against an in-memory database), and real HTTP integration
-  tests against a running `ApiServer` instance:
+  tests against a running `ApiServer` instance. Every teller-facing feature area has its
+  own dedicated integration test class (e.g. `CashDrawerIntegrationTest`,
+  `ChequeIntegrationTest`, `LoanIntegrationTest`, `HoldIntegrationTest`,
+  `CorrespondenceIntegrationTest`, `ProductsContentTest`, `BranchIntegrationTest`,
+  `ComplianceIntegrationTest`, `CreditScoreIntegrationTest`), each covering both the
+  happy path and the negative/rejection cases specific to that feature:
   - `BankingServiceValidationTest`, `PasswordUtilTest`, `UserPermissionTest` — pure/negative/data-driven
   - `AmlServiceTest`, `GlServicePostTest`, `GlDaoIntegrationTest` — self-contained H2 connections
   - `InterestServiceTest`, `ApprovalServiceTest` — `@ParameterizedTest` boundary sweeps
@@ -397,7 +405,7 @@ standard for that layer rather than one framework stretched to cover everything:
 `HealthAndCustomersApiTest` / `AccountAndTransactionApiTest` exercise it in
 given/when/then style with JSON-path assertions (`body("balance", equalTo("175.00"))`)
 instead of manual string parsing. Tagged `@Tag("api-automation")` and included in the
-default run, so it's part of the 156 tests that go green in CI on every push.
+default run, so it's part of the 388 tests that go green in CI on every push.
 
 **Web UI automation (Selenium + Page Object Model)** — `WebDriverFactory` launches
 headless Chrome (auto-managed by WebDriverManager, no chromedriver binary to hand-install),
@@ -577,7 +585,7 @@ database.
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
 
 1. Checks out the repo and sets up JDK 17 (Temurin, with Maven dependency caching).
-2. Runs `mvn -B verify` — the full 156-test suite (JUnit 5 + Cucumber + RestAssured API
+2. Runs `mvn -B verify` — the full 388-test suite (JUnit 5 + Cucumber + RestAssured API
    automation) against H2, no MySQL service container needed. The Selenium and
    AssertJ-Swing automation suites are opt-in and don't run here yet — see
    [Test Automation Suite](#test-automation-suite).

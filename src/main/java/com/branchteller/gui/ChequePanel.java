@@ -111,6 +111,12 @@ public class ChequePanel extends JPanel {
             amountField.setText("");
             loadPending();
             JOptionPane.showMessageDialog(this, Messages.tr("cheque.queuedMsg"), Messages.tr("cheque.queuedTitle"), JOptionPane.INFORMATION_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): ChequeService.deposit() can reject a non-positive amount, and
+            // (as of this review) a CLOSED destination account or a duplicate cheque number --
+            // none of that was caught here before, so it would have crashed out of this button
+            // handler uncaught instead of showing the teller a clear message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

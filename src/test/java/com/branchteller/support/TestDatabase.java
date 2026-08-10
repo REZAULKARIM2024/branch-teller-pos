@@ -292,6 +292,22 @@ public final class TestDatabase {
                     "note VARCHAR(255), " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // QA finding (fixed): same gap as cash_drawer_logs above -- ChequeService/ChequeDAO
+            // have existed since early in the project, but this table was never added to the
+            // shared test schema, so the Cheques feature could never have been integration-tested
+            // against a real database before this review. Columns mirror database/schema.sql's
+            // cheques table, ENUM narrowed to VARCHAR per this file's existing convention.
+            st.execute("CREATE TABLE cheques (" +
+                    "cheque_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "account_id INT NOT NULL, " +
+                    "cheque_no VARCHAR(30) NOT NULL, " +
+                    "amount DECIMAL(15,2) NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'PENDING', " +
+                    "teller_id INT NOT NULL, " +
+                    "deposit_date DATE NOT NULL, " +
+                    "clear_date DATE NULL, " +
+                    "note VARCHAR(255))");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

@@ -29,10 +29,42 @@ public class ChequeService {
     private final TransactionDAO transactionDAO = new TransactionDAO();
     private final AuditService auditService = new AuditService();
 
+    /**
+     * QA finding (fixed): this method used to insert a cheque against any accountId at all --
+     * it never even looked the account up, let alone checked its status. A cheque could be
+     * queued (and later cleared -- see {@link #clear}) against a CLOSED account, crediting funds
+     * into an account that shouldn't be able to receive any money at all, exactly the same class
+     * of bug this review already found and fixed in {@code BankingService}'s deposit/withdraw/
+     * transfer. {@code ChequePanel}'s deposit form only reaches this after a successful account
+     * lookup, so this was invisible from the GUI alone -- it only shows up when the account
+     * happens to be CLOSED, or when this service is called directly. Fixed by looking the account
+     * up here too and rejecting a CLOSED one, while still allowing DORMANT accounts to receive a
+     * cheque (same reasoning as the Teller Counter fix: transacting is normally how a dormant
+     * account gets reactivated).
+     *
+     * <p>Also newly rejects: a blank/null cheque number (previously only enforced by the GUI,
+     * not the service itself), and depositing the exact same cheque number against the same
+     * account a second time while an earlier deposit of it is still PENDING or already CLEARED --
+     * there was nothing stopping the same physical cheque from being queued (and double-credited)
+     * twice. A cheque that previously BOUNCED can still be re-deposited, since a genuinely
+     * re-presented cheque is a normal, legitimate flow.</p>
+     */
     public Cheque deposit(int accountId, String chequeNo, BigDecimal amount, int tellerId, String note) throws SQLException {
         if (amount.signum() <= 0) throw new IllegalArgumentException("Cheque amount must be positive");
+        if (chequeNo == null || chequeNo.isBlank()) throw new IllegalArgumentException("Cheque number is required");
 
         try (Connection conn = DBConnection.getConnection()) {
+            Account acct = accountDAO.findByIdForUpdate(conn, accountId)
+                    .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+            if ("CLOSED".equals(acct.getStatus())) {
+                throw new IllegalArgumentException("Account " + acct.getAccountNumber()
+                        + " is closed and can't receive a cheque deposit");
+            }
+            if (chequeDAO.existsActiveForAccount(conn, accountId, chequeNo)) {
+                throw new IllegalArgumentException("Cheque #" + chequeNo
+                        + " is already pending or cleared for this account");
+            }
+
             Cheque cheque = new Cheque();
             cheque.setAccountId(accountId);
             cheque.setChequeNo(chequeNo);
@@ -66,6 +98,17 @@ public class ChequeService {
 
                 Account acct = accountDAO.findByIdForUpdate(conn, cheque.getAccountId())
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + cheque.getAccountId()));
+
+                // QA finding (fixed): guards against the account being closed *after* the cheque
+                // was queued but *before* it clears -- the same "closed in the meantime" scenario
+                // ApprovalService.approve() already had to handle for a queued withdrawal. Nothing
+                // has been written yet at this point, so throwing here just leaves the cheque
+                // sitting safely PENDING -- no revert-style cleanup needed, unlike the maker-checker
+                // case, because the balance update below hasn't happened.
+                if ("CLOSED".equals(acct.getStatus())) {
+                    throw new IllegalArgumentException("Account " + acct.getAccountNumber()
+                            + " is closed and can't receive a cleared cheque");
+                }
 
                 BigDecimal newBalance = acct.getBalance().add(cheque.getAmount());
                 accountDAO.updateBalance(conn, acct.getId(), newBalance);

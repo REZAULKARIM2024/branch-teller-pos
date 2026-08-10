@@ -258,12 +258,33 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("4. Cheques",
                 "<h2>Cheques</h2>"
+                + "<p><b>Who can access:</b> Everyone, at every role.</p>"
                 + "<ol>"
-                + "<li>Deposit a cheque against an account: enter the account, cheque number, amount, and "
-                + "deposit date.</li>"
-                + "<li>The cheque sits in <b>PENDING</b> status until you (or a manager) mark it "
-                + "<b>CLEARED</b> once funds are confirmed, or <b>BOUNCED</b> if it's returned unpaid.</li>"
-                + "</ol>");
+                + "<li>Deposit a cheque against an account: enter the account number, cheque number, and "
+                + "amount, then <b>Queue Deposit</b>. The deposit date is stamped automatically as today "
+                + "&mdash; there's no separate date field to fill in.</li>"
+                + "<li>Depositing a cheque doesn't move any money yet &mdash; it just queues the cheque as "
+                + "<b>PENDING</b> in the list below, the same real hold period a physical cheque goes "
+                + "through at any bank.</li>"
+                + "<li>Select a pending cheque and mark it <b>CLEARED</b> once funds are confirmed (this "
+                + "credits the account and posts the transaction), or <b>BOUNCED</b> if it's returned "
+                + "unpaid (no balance change at all).</li>"
+                + "</ol>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A zero or negative amount is always rejected, and so is a blank cheque number.</li>"
+                + "<li>Depositing the exact same cheque number against the same account a second time is "
+                + "rejected while an earlier deposit of it is still <b>PENDING</b> or already "
+                + "<b>CLEARED</b> &mdash; this stops the same physical cheque from being queued (and "
+                + "double-credited) twice. A cheque that <b>BOUNCED</b> can still be re-deposited, since a "
+                + "genuinely re-presented cheque is a normal, legitimate flow.</li>"
+                + "<li>A cheque can't be deposited against, or cleared into, a <b>CLOSED</b> account "
+                + "&mdash; including if the account gets closed while the cheque is still sitting PENDING; "
+                + "clearing it then is rejected and the cheque just stays PENDING, untouched. A "
+                + "<b>DORMANT</b> account can still receive a cheque normally.</li>"
+                + "<li>Clearing or bouncing a cheque that isn't currently PENDING (already cleared, "
+                + "already bounced, or doesn't exist) is rejected.</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 5. Loans

@@ -49,6 +49,22 @@ public class ChequeDAO {
         return results;
     }
 
+    /** True if this account already has a PENDING or CLEARED cheque with this exact cheque
+     *  number -- used to reject depositing the same physical cheque twice against the same
+     *  account. A BOUNCED cheque doesn't count, so a genuinely re-presented cheque can still be
+     *  deposited again. */
+    public boolean existsActiveForAccount(Connection conn, int accountId, String chequeNo) throws SQLException {
+        String sql = "SELECT 1 FROM cheques WHERE account_id = ? AND cheque_no = ? " +
+                "AND status IN ('PENDING', 'CLEARED')";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, accountId);
+            ps.setString(2, chequeNo);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public java.util.Optional<Cheque> findById(Connection conn, int chequeId) throws SQLException {
         String sql = "SELECT ch.*, a.account_number FROM cheques ch " +
                 "JOIN accounts a ON a.account_id = ch.account_id WHERE ch.cheque_id = ?";

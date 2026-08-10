@@ -179,6 +179,15 @@ public class CorrespondenceService {
         }
     }
 
+    /**
+     * QA finding (fixed): for a REJECTED loan, this used to fall into the generic "else" branch
+     * shared with APPROVED/DISBURSED/CLOSED, producing the letter "We are pleased to inform you
+     * that the following credit facility has been rejected on the terms summarized below" --
+     * genuinely wrong, tone-deaf, customer-facing copy that congratulates someone on their loan
+     * being turned down. Fixed by giving REJECTED its own branch with an appropriately regretful
+     * message, while leaving the APPLIED (pending) branch and the APPROVED/DISBURSED/CLOSED
+     * "pleased to inform" branch exactly as they were.
+     */
     private List<String> loanSanctionLetter(String loanIdRaw) throws SQLException {
         int loanId;
         try {
@@ -194,13 +203,24 @@ public class CorrespondenceService {
             lines.add("To,");
             lines.add(loan.getCustomerName());
             lines.add("");
-            lines.add("Subject: " + ("APPLIED".equals(loan.getStatus()) ? "Loan Application Received" : "Sanction of " + loan.getLoanType() + " Loan"));
+            String subject;
+            if ("APPLIED".equals(loan.getStatus())) {
+                subject = "Loan Application Received";
+            } else if ("REJECTED".equals(loan.getStatus())) {
+                subject = "Loan Application Decision";
+            } else {
+                subject = "Sanction of " + loan.getLoanType() + " Loan";
+            }
+            lines.add("Subject: " + subject);
             lines.add("");
             lines.add("Dear " + loan.getCustomerName() + ",");
             lines.add("");
             if ("APPLIED".equals(loan.getStatus())) {
                 lines.add("We confirm receipt of your loan application, currently under review. Once a");
                 lines.add("decision is made, a follow-up letter will confirm approval or rejection.");
+            } else if ("REJECTED".equals(loan.getStatus())) {
+                lines.add("We regret to inform you that, after careful review, we are unable to approve");
+                lines.add("the following credit facility at this time:");
             } else {
                 lines.add("We are pleased to inform you that the following credit facility has been");
                 lines.add(loan.getStatus().toLowerCase() + " on the terms summarized below:");
@@ -283,10 +303,21 @@ public class CorrespondenceService {
         }
     }
 
+    /**
+     * QA finding (fixed): the year field used to be passed straight into {@code
+     * period.startsWith(year)} with zero format validation -- typing "26" instead of "2026", or
+     * plain garbage, silently matched nothing and produced a certificate that looks legitimate
+     * but just says "(no interest accrual records found for 26)", indistinguishable from a
+     * genuinely accrual-free year. Fixed by rejecting anything that isn't a 4-digit year up
+     * front with a clear message, instead of silently generating a misleading empty certificate.
+     */
     private List<String> interestCertificate(String accountNumber, String yearRaw) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             Account acct = requireAccount(conn, accountNumber);
             String year = (yearRaw == null || yearRaw.isBlank()) ? String.valueOf(LocalDate.now().getYear()) : yearRaw.trim();
+            if (!year.matches("\\d{4}")) {
+                throw new IllegalArgumentException("Enter a 4-digit year, e.g. " + LocalDate.now().getYear() + ".");
+            }
 
             List<InterestAccrual> accruals = interestAccrualDAO.findByAccountId(conn, acct.getId());
             List<InterestAccrual> forYear = new ArrayList<>();

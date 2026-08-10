@@ -330,14 +330,30 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("6. Correspondence",
                 "<h2>Correspondence</h2>"
+                + "<p><b>Who can access:</b> Everyone, at every role.</p>"
                 + "<p>Generate official bank letters directly from live data &mdash; account opening "
                 + "confirmations, balance certificates, No-Objection Certificates, loan sanction letters, "
                 + "reference letters, closure letters, and interest certificates.</p>"
                 + "<ol>"
-                + "<li>Pick a letter type and the relevant account/customer/loan.</li>"
-                + "<li>Preview the generated letter.</li>"
-                + "<li><b>Print...</b> or <b>Save to File...</b> as needed.</li>"
-                + "</ol>");
+                + "<li>Pick a letter type. For every type except <b>Loan Sanction</b>, enter the account "
+                + "number &mdash; the customer's name and details are looked up automatically, there's no "
+                + "separate customer field. For <b>Loan Sanction</b>, enter the loan ID instead.</li>"
+                + "<li>Some letter types have an extra field: purpose (NOC), addressee (Reference Letter), "
+                + "or year (Interest Certificate) &mdash; each has a sensible default if left blank.</li>"
+                + "<li>Click <b>Generate</b> to preview the letter, then <b>Print...</b> or "
+                + "<b>Save to File...</b> as needed.</li>"
+                + "</ol>"
+                + "<p>Unlike Teller Counter, Cheques, or Loans, this page never moves money or changes any "
+                + "record &mdash; it's pure read-only reporting, so every letter type works regardless of "
+                + "account status, and always states the real status honestly in the letter body.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A blank or unknown account number is rejected for every account-based letter type.</li>"
+                + "<li>A non-numeric or unknown loan ID is rejected for <b>Loan Sanction</b>.</li>"
+                + "<li>On the <b>Interest Certificate</b>, a year that isn't exactly 4 digits (e.g. typing "
+                + "\"26\" instead of \"2026\") is rejected with a clear message, rather than silently "
+                + "generating a certificate that looks legitimate but just says no records were found.</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 7. Products & Services

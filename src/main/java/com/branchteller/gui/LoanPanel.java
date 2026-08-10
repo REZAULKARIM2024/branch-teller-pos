@@ -158,6 +158,12 @@ public class LoanPanel extends JPanel {
             rateField.setText("");
             tenureField.setText("");
             loadLoans();
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): LoanService.apply() can reject a non-positive principal/tenure,
+            // a negative interest rate, or (as of this review) a CLOSED destination account --
+            // none of that was caught here before, so it would have crashed out of this button
+            // handler uncaught instead of showing the teller a clear message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

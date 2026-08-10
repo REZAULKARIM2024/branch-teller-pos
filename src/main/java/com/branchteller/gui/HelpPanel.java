@@ -291,9 +291,12 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("5. Loans",
                 "<h2>Loans</h2>"
+                + "<p><b>Who can access:</b> Everyone can apply for a loan and pay installments; "
+                + "<b>Approve</b>/<b>Reject</b> is Manager/Admin only.</p>"
                 + "<ol>"
-                + "<li><b>Apply:</b> pick the customer and their account, choose a loan type, and enter "
-                + "principal, interest rate, and tenure (months).</li>"
+                + "<li><b>Apply:</b> enter the customer's account number, choose a loan type, and enter "
+                + "principal, interest rate, and tenure (months) &mdash; the customer is looked up "
+                + "automatically from the account, there's no separate customer picker.</li>"
                 + "<li><b>Approve / Reject</b> (Manager/Admin only): review APPLIED loans and decide.</li>"
                 + "<li><b>Disburse:</b> once APPROVED, disbursing credits the principal to the customer's "
                 + "account and automatically builds the full EMI repayment schedule.</li>"
@@ -301,7 +304,26 @@ public class HelpPanel extends JPanel {
                 + "<b>Pay Next Installment</b> to collect each payment as it's due.</li>"
                 + "</ol>"
                 + "<p><b>Tip:</b> check a customer's <b>Credit Scoring</b> result before approving a large "
-                + "loan &mdash; it's a supporting signal, not an automatic decision.</p>");
+                + "loan &mdash; it's a supporting signal, not an automatic decision.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A zero/negative principal, a zero/negative tenure, or a negative interest rate is "
+                + "always rejected at application time &mdash; a zero interest rate is fine (an "
+                + "interest-free loan, split evenly across installments).</li>"
+                + "<li>A loan can't be applied for against a <b>CLOSED</b> account, so a manager never "
+                + "spends time reviewing an application that's guaranteed to fail later. A "
+                + "<b>DORMANT</b> account can still apply normally.</li>"
+                + "<li>Approving or rejecting a loan that isn't currently sitting APPLIED is rejected "
+                + "&mdash; you can't approve something already decided, and disbursing only works on a "
+                + "loan that's currently APPROVED.</li>"
+                + "<li>Disbursing into, or paying an installment out of, a <b>CLOSED</b> account is "
+                + "rejected &mdash; including if the account gets closed after the loan was already "
+                + "approved or disbursed; the loan/installment just stays in its current state, "
+                + "untouched. A <b>DORMANT</b> account can still receive a disbursement or pay an "
+                + "installment normally.</li>"
+                + "<li>Paying the next installment is rejected as insufficient funds if it exceeds the "
+                + "account's balance, the same way a Teller Counter withdrawal would be.</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 6. Correspondence

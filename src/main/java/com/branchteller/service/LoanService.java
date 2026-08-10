@@ -34,12 +34,27 @@ public class LoanService {
     private final AuditService auditService = new AuditService();
     private final GlService glService = new GlService();
 
+    /**
+     * QA finding (fixed): this method used to insert a loan application against any accountId
+     * at all -- it never looked the account up, so a loan could be applied for (and, worse,
+     * approved by a manager -- real review effort spent) against an account that was CLOSED or
+     * didn't even exist, only to fail at {@link #disburse} time. Fixed by looking the account up
+     * here and rejecting a CLOSED one up front, the same "CLOSED blocks, DORMANT doesn't" rule
+     * established for Teller Counter/Cheques. Also newly rejects a negative interest rate, which
+     * {@link #calculateEmi}'s standard amortization formula was never designed to handle
+     * sensibly (zero is still fine -- it's handled as a flat, interest-free split).
+     */
     public Loan apply(int customerId, int accountId, String loanType, BigDecimal principal,
                        BigDecimal interestRate, int tenureMonths) throws SQLException {
         if (principal.signum() <= 0) throw new IllegalArgumentException("Principal must be positive");
         if (tenureMonths <= 0) throw new IllegalArgumentException("Tenure must be positive");
+        if (interestRate.signum() < 0) throw new IllegalArgumentException("Interest rate can't be negative");
 
         try (Connection conn = DBConnection.getConnection()) {
+            Account acct = accountDAO.findByIdForUpdate(conn, accountId)
+                    .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+            requireNotClosed(acct, "have a loan applied against it");
+
             Loan loan = new Loan();
             loan.setCustomerId(customerId);
             loan.setAccountId(accountId);
@@ -74,17 +89,50 @@ public class LoanService {
         }
     }
 
+    /**
+     * QA finding (fixed): this method -- and {@link #reject} -- used to call {@code
+     * loanDAO.updateStatus} unconditionally, with no check on the loan's current status at all.
+     * That meant an already-REJECTED loan could be "approved" afterward, an already-APPROVED (or
+     * even already-DISBURSED) loan could be "approved" or "rejected" again, and every one of
+     * those calls would write an audit entry unconditionally claiming the before-value was
+     * "APPLIED" -- a lie for any loan that wasn't actually still APPLIED. This is exactly the
+     * kind of state-machine guard {@link ApprovalService#approve} and {@link ChequeService#clear}
+     * already have (both reject a decision on anything that isn't still PENDING) -- Loans was the
+     * one place in the maker-checker family of features missing it.
+     */
     public void approve(int loanId, int managerId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            Loan loan = loanDAO.findById(conn, loanId)
+                    .orElseThrow(() -> new IllegalArgumentException("Loan not found: " + loanId));
+            if (!"APPLIED".equals(loan.getStatus())) {
+                throw new IllegalStateException("Loan " + loanId + " is not awaiting approval (current status: "
+                        + loan.getStatus() + ")");
+            }
             loanDAO.updateStatus(conn, loanId, "APPROVED", managerId);
             auditService.log(conn, managerId, "LOAN_APPROVED", "loan", loanId, "APPLIED", "APPROVED");
         }
     }
 
+    /** See {@link #approve}'s javadoc -- same missing state-machine guard, fixed the same way. */
     public void reject(int loanId, int managerId) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            Loan loan = loanDAO.findById(conn, loanId)
+                    .orElseThrow(() -> new IllegalArgumentException("Loan not found: " + loanId));
+            if (!"APPLIED".equals(loan.getStatus())) {
+                throw new IllegalStateException("Loan " + loanId + " is not awaiting a decision (current status: "
+                        + loan.getStatus() + ")");
+            }
             loanDAO.updateStatus(conn, loanId, "REJECTED", managerId);
             auditService.log(conn, managerId, "LOAN_REJECTED", "loan", loanId, "APPLIED", "REJECTED");
+        }
+    }
+
+    /** Same "CLOSED blocks, DORMANT doesn't" rule as {@code BankingService}'s helper of the same
+     *  name -- duplicated locally since that one is private to its own class. */
+    private void requireNotClosed(Account acct, String action) {
+        if ("CLOSED".equals(acct.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Account " + acct.getAccountNumber() + " is closed and cannot " + action);
         }
     }
 
@@ -101,6 +149,13 @@ public class LoanService {
 
                 Account acct = accountDAO.findByIdForUpdate(conn, loan.getAccountId())
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + loan.getAccountId()));
+
+                // QA finding (fixed): guards against the account being closed between
+                // application/approval and disbursement -- same class of bug already found and
+                // fixed for Teller Counter and Cheques. Nothing has been written yet at this
+                // point, so throwing here just leaves the loan sitting safely APPROVED, ready to
+                // retry once the account situation is resolved.
+                requireNotClosed(acct, "receive a loan disbursement");
 
                 BigDecimal newBalance = acct.getBalance().add(loan.getPrincipal());
                 accountDAO.updateBalance(conn, acct.getId(), newBalance);
@@ -151,6 +206,10 @@ public class LoanService {
 
                 Account acct = accountDAO.findByIdForUpdate(conn, loan.getAccountId())
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + loan.getAccountId()));
+
+                // QA finding (fixed): a CLOSED account was never excluded from installment
+                // payments either -- same rule as everywhere else this review touched.
+                requireNotClosed(acct, "pay a loan installment from");
 
                 if (acct.getBalance().compareTo(next.getAmountDue()) < 0) {
                     throw new InsufficientFundsException(

@@ -18,14 +18,16 @@ public class AuditLogPanel extends JPanel {
                     Messages.tr("audit.col.entityType"), Messages.tr("audit.col.entityId"),
                     Messages.tr("audit.col.before"), Messages.tr("audit.col.after")}, 0);
     // QA finding (fixed): this used to list only {"ALL", "account", "cheque", "loan"} -- but
-    // AuditService.log() is actually called with 11 distinct entity_type values across the app
-    // (account, aml_flag, card, cheque, complaint, customer, employee, loan, pending_approval,
-    // regulatory_report, user). With 8 of those missing from the dropdown, an Admin had no way to
-    // filter down to, say, just "card" actions or just "aml_flag" reviews -- they'd have to pick
-    // "ALL" and scan by eye, defeating the point of a filtered investigative view. Kept in sync
-    // with every entity_type string actually passed to auditService.log() across the codebase.
+    // AuditService.log() is actually called with 12 distinct entity_type values across the app
+    // (account, aml_flag, branch, card, cheque, complaint, customer, employee, loan,
+    // pending_approval, regulatory_report, user). With entries missing from the dropdown, an
+    // Admin had no way to filter down to, say, just "card" actions or just "aml_flag" reviews --
+    // they'd have to pick "ALL" and scan by eye, defeating the point of a filtered investigative
+    // view. Kept in sync with every entity_type string actually passed to auditService.log()
+    // across the codebase. "branch" added when BranchService.openBranch() was given an audit
+    // trail entry (it previously logged nothing at all when a branch was opened).
     private final JComboBox<String> entityFilter =
-            new JComboBox<>(new String[]{"ALL", "account", "aml_flag", "card", "cheque", "complaint",
+            new JComboBox<>(new String[]{"ALL", "account", "aml_flag", "branch", "card", "cheque", "complaint",
                     "customer", "employee", "loan", "pending_approval", "regulatory_report", "user"});
 
     public AuditLogPanel() {

@@ -32,6 +32,21 @@ public class BranchDAO {
         return results;
     }
 
+    /** True if a branch already has this exact routing code -- the DB's UNIQUE constraint on
+     *  routing_code would catch this too, but checking first lets the caller raise a clear
+     *  business-rule exception instead of surfacing a raw constraint-violation SQLException
+     *  straight to the GUI. */
+    public boolean routingCodeExists(Connection conn, String routingCode) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM branches WHERE routing_code = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, routingCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1) > 0;
+            }
+        }
+    }
+
     public int insert(Connection conn, Branch b) throws SQLException {
         String sql = "INSERT INTO branches (name, address, routing_code) VALUES (?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {

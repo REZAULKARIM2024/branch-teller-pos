@@ -304,6 +304,26 @@ public final class TestDatabase {
         }
     }
 
+    /** Like {@link #insertUser}, but assigns the user to a specific branch -- needed to test
+     *  BranchDAO's employee_count subquery, which counts {@code users.branch_id}. Plain
+     *  {@link #insertUser} always leaves branch_id NULL, so it can never contribute to any
+     *  branch's employee count. */
+    public static int insertUserWithBranch(String usernamePrefix, String role, int branchId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO users (username, password_hash, salt, full_name, role, branch_id, active) " +
+                             "VALUES (?, 'x', 'x', ?, ?, ?, TRUE)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            String username = usernamePrefix + nextSeq();
+            ps.setString(1, username);
+            ps.setString(2, "Test " + role);
+            ps.setString(3, role);
+            ps.setInt(4, branchId);
+            ps.executeUpdate();
+            return generatedId(ps);
+        }
+    }
+
     public static int insertCustomer(String kycStatus) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(

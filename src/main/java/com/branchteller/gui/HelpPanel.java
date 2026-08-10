@@ -612,10 +612,31 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("25. Branches (Admin)",
                 "<h2>Branches</h2>"
-                + "<p>A live overview of every branch: address, routing code, number of accounts, staff "
-                + "count, and total deposits held.</p>"
-                + "<p>Admins can click <b>Open New Branch</b> to add another location (name, address, and a "
-                + "unique routing code).</p>");
+                + "<p><b>Who can access:</b> Admins only (not visible to Tellers or Branch Managers).</p>"
+                + "<p>A live overview of every branch in the bank, one row per branch, with a <b>Refresh</b> "
+                + "button to re-pull the latest figures:</p>"
+                + "<ul>"
+                + "<li><b>Name, Address, Routing Code</b> &mdash; as entered when the branch was opened.</li>"
+                + "<li><b>Accounts</b> &mdash; how many customer accounts currently belong to that branch.</li>"
+                + "<li><b>Staff</b> &mdash; how many user logins (tellers, managers, admins) are assigned to "
+                + "that branch.</li>"
+                + "<li><b>Total Deposits</b> &mdash; the sum of every account balance at that branch, computed "
+                + "live (a brand-new branch with no accounts yet correctly shows $0.00, not blank).</li>"
+                + "</ul>"
+                + "<p><b>Opening a new branch:</b> click <b>Open New Branch</b> and fill in:</p>"
+                + "<ol>"
+                + "<li><b>Name</b> &mdash; required.</li>"
+                + "<li><b>Address</b> &mdash; optional.</li>"
+                + "<li><b>Routing Code</b> &mdash; required, and must be unique across every branch. If you "
+                + "reuse a routing code that's already taken, the request is rejected with a clear message "
+                + "naming the conflicting code instead of a raw database error.</li>"
+                + "</ol>"
+                + "<p>A blank Name or Routing Code is rejected before anything is written to the database. "
+                + "Successfully opening a branch is recorded in the Audit Log (action "
+                + "<b>BRANCH_OPENED</b>, entity type <b>branch</b>) together with the admin who opened it, "
+                + "the same way hiring an employee or filing a SAR is logged.</p>"
+                + "<p>Branches don't have an Edit or Close option yet &mdash; once opened, a branch's details "
+                + "can't be changed from this screen.</p>");
 
         // ------------------------------------------------------------------
         // 26. Security (all users)

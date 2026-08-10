@@ -62,8 +62,11 @@ public class BranchesPanel extends JPanel {
             return;
         }
         try {
-            branchService.openBranch(nameField.getText().trim(), addressField.getText().trim(), routingField.getText().trim());
+            branchService.openBranch(nameField.getText().trim(), addressField.getText().trim(),
+                    routingField.getText().trim(), currentUser.getId());
             loadAll();
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

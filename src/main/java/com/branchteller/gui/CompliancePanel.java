@@ -130,8 +130,10 @@ public class CompliancePanel extends JPanel {
                 JOptionPane.showMessageDialog(this, Messages.tr("compliance.flagNotFoundMsg"), Messages.tr("common.error"), JOptionPane.WARNING_MESSAGE);
                 return;
             }
+            // fileReport() now marks the flag reviewed itself, atomically, as part of the same
+            // filing transaction (see ComplianceService.fileReport() javadoc) -- no separate
+            // amlService.markReviewed() call needed here anymore.
             RegulatoryReport r = complianceService.fileReport((String) reportTypeCombo.getSelectedItem(), flag, currentUser.getId(), narrative);
-            amlService.markReviewed(flagId, currentUser.getId());
             JOptionPane.showMessageDialog(this, Messages.tr("compliance.filedMsg", r.getReportType(), r.getReferenceNo()));
             loadUnreviewedFlags();
             loadReports();

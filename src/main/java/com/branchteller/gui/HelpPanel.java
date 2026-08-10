@@ -507,13 +507,27 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("21. Compliance / SAR-CTR (Manager+)",
                 "<h2>Compliance</h2>"
-                + "<p><b>Sanctions/PEP Screening:</b> enter a Customer ID and click <b>Screen Customer</b> to "
-                + "check their name against a sanctions/politically-exposed-persons watchlist. Results are "
-                + "CLEAR, POTENTIAL_MATCH, or CONFIRMED_MATCH with a match score, and are logged for audit.</p>"
-                + "<p><b>SAR/CTR Filing:</b> unreviewed AML flags (from the <b>AML Flags</b> tab) appear here "
-                + "as candidates. Select one, choose <b>SAR</b> (Suspicious Activity Report) or <b>CTR</b> "
-                + "(Currency Transaction Report), write a narrative, and click <b>File Report for Selected "
-                + "Flag</b>. Filed reports get a reference number and appear in the table below.</p>");
+                + "<p><b>Who can access:</b> Branch Managers and above only (not visible to Tellers).</p>"
+                + "<p>Two related tools live here: sanctions/PEP name screening, and formal SAR/CTR filing "
+                + "against AML flags raised elsewhere in the app.</p>"
+                + "<p><b>Sanctions/PEP Screening tab:</b> enter a Customer ID and click <b>Screen Customer</b> "
+                + "to check their name against a sanctions/politically-exposed-persons watchlist (a simplified "
+                + "stand-in for a real OFAC/PEP fuzzy-matching engine). The check compares the customer's name "
+                + "and each watchlist name word-by-word and scores what fraction of the shorter name's words "
+                + "are also found in the longer name: <b>CLEAR</b> (score under 40%), <b>POTENTIAL_MATCH</b> "
+                + "(40% to just under 80%) &mdash; worth a manual look, or <b>CONFIRMED_MATCH</b> (80% or "
+                + "higher). Every screening is saved to the results table below and logged to the audit trail, "
+                + "whatever the outcome.</p>"
+                + "<p><b>SAR/CTR Filing tab:</b> unreviewed AML flags (the same ones raised on the <b>AML "
+                + "Flags</b> tab whenever a single transaction hits the $10,000 reporting threshold) appear "
+                + "here as candidates. Select one, choose <b>SAR</b> (Suspicious Activity Report) or <b>CTR</b> "
+                + "(Currency Transaction Report), write a narrative describing why it's being filed, and click "
+                + "<b>File Report for Selected Flag</b>. Filing does two things together, as a single all-or-"
+                + "nothing step: it creates the regulatory report with a reference number, and it marks the "
+                + "source flag reviewed so it drops off the Unreviewed Flags list. That way a flag can never "
+                + "end up double-filed because the \"mark reviewed\" half of the job silently failed after the "
+                + "report was already created. Filed reports appear in the table at the bottom with their "
+                + "reference number, related account, and who filed them.</p>");
 
         // ------------------------------------------------------------------
         // 22. Credit Scoring (manager+)

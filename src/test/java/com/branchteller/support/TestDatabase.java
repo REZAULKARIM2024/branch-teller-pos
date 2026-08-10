@@ -192,6 +192,42 @@ public final class TestDatabase {
                     "clock_in TIMESTAMP NOT NULL, " +
                     "clock_out TIMESTAMP NULL)");
 
+            st.execute("CREATE TABLE sanctions_list (" +
+                    "entry_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "full_name VARCHAR(100) NOT NULL, " +
+                    "list_type VARCHAR(20) NOT NULL, " +
+                    "note VARCHAR(255))");
+
+            st.execute("CREATE TABLE screening_results (" +
+                    "result_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "customer_id INT NOT NULL, " +
+                    "matched_entry_id INT NULL, " +
+                    "match_score DECIMAL(5,2) NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'CLEAR', " +
+                    "screened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "reviewed_by INT NULL)");
+
+            st.execute("CREATE TABLE regulatory_reports (" +
+                    "report_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "report_type VARCHAR(10) NOT NULL, " +
+                    "reference_no VARCHAR(30) UNIQUE NOT NULL, " +
+                    "related_account_id INT NULL, " +
+                    "related_flag_id INT NULL, " +
+                    "filed_by INT NOT NULL, " +
+                    "filed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "narrative VARCHAR(2000))");
+
+            // Same fictional sample entries seeded in production's database/schema.sql, so
+            // ComplianceService tests exercise the real word-overlap matching logic against
+            // the same data shape (two OFAC-only names, one PEP name where "PEP" is itself
+            // part of the seeded full_name -- see ComplianceIntegrationTest for why that matters).
+            st.execute("INSERT INTO sanctions_list (full_name, list_type, note) VALUES " +
+                    "('Viktor Bout', 'OFAC', 'Sample OFAC SDN-style test entry (fictional use)'), " +
+                    "('Ali Khamenei', 'OFAC', 'Sample OFAC SDN-style test entry (fictional use)'), " +
+                    "('Nicolas Maduro', 'OFAC', 'Sample OFAC SDN-style test entry (fictional use)'), " +
+                    "('John Doe PEP', 'PEP', 'Sample politically-exposed-person test entry'), " +
+                    "('Jane Smith PEP', 'PEP', 'Sample politically-exposed-person test entry')");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +
@@ -242,6 +278,26 @@ public final class TestDatabase {
                      Statement.RETURN_GENERATED_KEYS)) {
             long seq = nextSeq();
             ps.setString(1, "Test Customer " + seq);
+            ps.setString(2, "555-" + seq);
+            ps.setString(3, "customer" + seq + "@example.test");
+            ps.setString(4, "1 Test St");
+            ps.setString(5, kycStatus);
+            ps.executeUpdate();
+            return generatedId(ps);
+        }
+    }
+
+    /** Like {@link #insertCustomer}, but with an exact, caller-chosen full_name instead of the
+     *  auto-generated "Test Customer N" pattern -- needed for ComplianceService sanctions-screening
+     *  tests, which must control the customer's name precisely to get a deterministic match score
+     *  against the shared, seeded sanctions_list. Phone/email are still auto-generated and unique. */
+    public static int insertCustomerNamed(String fullName, String kycStatus) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO customers (full_name, phone, email, address, kyc_status) VALUES (?, ?, ?, ?, ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            long seq = nextSeq();
+            ps.setString(1, fullName);
             ps.setString(2, "555-" + seq);
             ps.setString(3, "customer" + seq + "@example.test");
             ps.setString(4, "1 Test St");

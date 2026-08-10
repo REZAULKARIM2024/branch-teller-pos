@@ -1,6 +1,7 @@
 package com.branchteller.service;
 
 import com.branchteller.config.DBConnection;
+import com.branchteller.dao.AmlDAO;
 import com.branchteller.dao.ComplianceDAO;
 import com.branchteller.dao.CustomerDAO;
 import com.branchteller.model.Customer;
@@ -26,6 +27,7 @@ public class ComplianceService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private final ComplianceDAO complianceDAO = new ComplianceDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
+    private final AmlDAO amlDAO = new AmlDAO();
     private final AuditService auditService = new AuditService();
 
     public ScreeningResult screenCustomer(int customerId, int actorId) throws SQLException {
@@ -77,19 +79,48 @@ public class ComplianceService {
         }
     }
 
+    /**
+     * Files a SAR/CTR AND marks the source flag reviewed in one atomic transaction.
+     *
+     * QA finding (fixed): this used to be two separate service calls -- ComplianceService.fileReport()
+     * followed by a second, independent AmlService.markReviewed() call made by the GUI after this one
+     * returned. If the first succeeded but the second failed (dropped connection, concurrent edit, etc.),
+     * a regulatory report would exist referencing a flag that was STILL "unreviewed" -- so it would keep
+     * showing up in the Unreviewed Flags list and could be filed a second time as a duplicate SAR/CTR for
+     * the exact same suspicious activity. Doing both writes on one connection/transaction here closes
+     * that window: either both the filing and the review land, or neither does.
+     */
     public RegulatoryReport fileReport(String reportType, SuspiciousActivityFlag flag, int filedBy, String narrative) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
-            RegulatoryReport r = new RegulatoryReport();
-            r.setReportType(reportType);
-            r.setReferenceNo(reportType + "-" + System.currentTimeMillis() % 1000000 + "-" + (100 + RANDOM.nextInt(900)));
-            r.setRelatedAccountId(flag.getAccountId());
-            r.setRelatedFlagId(flag.getId());
-            r.setFiledBy(filedBy);
-            r.setNarrative(narrative);
-            int id = complianceDAO.insertReport(conn, r);
-            r.setId(id);
-            auditService.log(conn, filedBy, reportType + "_FILED", "regulatory_report", id, null, r.getReferenceNo());
-            return r;
+            conn.setAutoCommit(false);
+            try {
+                RegulatoryReport r = new RegulatoryReport();
+                r.setReportType(reportType);
+                r.setReferenceNo(reportType + "-" + System.currentTimeMillis() % 1000000 + "-" + (100 + RANDOM.nextInt(900)));
+                r.setRelatedAccountId(flag.getAccountId());
+                r.setRelatedFlagId(flag.getId());
+                r.setFiledBy(filedBy);
+                r.setNarrative(narrative);
+                int id = complianceDAO.insertReport(conn, r);
+                r.setId(id);
+
+                boolean flagUpdated = amlDAO.markReviewed(conn, flag.getId(), filedBy);
+                if (!flagUpdated) {
+                    throw new IllegalArgumentException("AML flag not found: " + flag.getId());
+                }
+
+                auditService.log(conn, filedBy, reportType + "_FILED", "regulatory_report", id, null, r.getReferenceNo());
+                auditService.log(conn, filedBy, "AML_FLAG_REVIEWED", "aml_flag", flag.getId(), "UNREVIEWED", "REVIEWED");
+
+                conn.commit();
+                return r;
+            } catch (Exception e) {
+                conn.rollback();
+                if (e instanceof SQLException) throw (SQLException) e;
+                throw (RuntimeException) e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
 

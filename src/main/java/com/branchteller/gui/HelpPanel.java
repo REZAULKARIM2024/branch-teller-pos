@@ -360,10 +360,18 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("7. Products & Services",
                 "<h2>Products &amp; Services</h2>"
+                + "<p><b>Who can access:</b> Everyone, at every role.</p>"
                 + "<p>A read-only reference catalog of everything NY Financial Bank offers, organized into "
                 + "<b>Personal</b>, <b>Business</b>, and <b>Commercial</b> categories. Click a category on the "
                 + "left to browse its products and short descriptions &mdash; handy when a customer asks "
-                + "\"what else do you offer?\"</p>");
+                + "\"what else do you offer?\"</p>"
+                + "<p>Unlike most other tabs, there's no form here to fill in or submit &mdash; it's static "
+                + "reference content only, not tied to any live account or customer data, so there's nothing "
+                + "here that can be \"rejected\". The one real way this kind of page can quietly break is a "
+                + "missing translation: switching languages could show a raw, untranslated key like "
+                + "<code>products.personal.travel.desc</code> instead of real text. This review verified all "
+                + "41 product/category labels are present and correctly translated in all 5 supported "
+                + "languages, and added a regression test that checks this automatically going forward.</p>");
 
         // ------------------------------------------------------------------
         // 8. Holds

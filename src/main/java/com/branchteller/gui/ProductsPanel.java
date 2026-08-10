@@ -17,8 +17,13 @@ import java.util.Map;
  */
 public class ProductsPanel extends JPanel {
 
-    private static final String[] CATEGORY_KEYS = {"personal", "business", "commercial"};
-    private static final Map<String, String[]> CATEGORY_ITEMS = new LinkedHashMap<>();
+    /** Package-private (not private) so {@code ProductsContentTest} can read the real category/
+     *  item structure directly as its source of truth, instead of duplicating this list inside
+     *  the test and risking the two silently drifting apart -- the same reasoning {@code
+     *  AboutContentTest} follows by reading {@code messages.properties}' {@code tab.*} keys
+     *  directly rather than hand-maintaining a parallel copy. */
+    static final String[] CATEGORY_KEYS = {"personal", "business", "commercial"};
+    static final Map<String, String[]> CATEGORY_ITEMS = new LinkedHashMap<>();
     static {
         CATEGORY_ITEMS.put("personal", new String[]{
                 "checking", "savings", "creditCards", "homeLoans", "auto", "investing", "education", "travel"});
@@ -40,6 +45,7 @@ public class ProductsPanel extends JPanel {
             categoryDisplay[i] = Messages.tr("products.category." + CATEGORY_KEYS[i]);
         }
         categoryList = new JList<>(categoryDisplay);
+        categoryList.setName("productsCategoryList");
         categoryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         categoryList.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         categoryList.setFixedCellHeight(32);
@@ -48,6 +54,7 @@ public class ProductsPanel extends JPanel {
         listScroll.setBorder(BorderFactory.createTitledBorder(Messages.tr("products.categoriesTitle")));
         listScroll.setPreferredSize(new Dimension(190, 0));
 
+        productGrid.setName("productsGrid");
         productGrid.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
         productGrid.setBackground(UITheme.BG_LIGHT);
         JScrollPane gridScroll = new JScrollPane(productGrid);

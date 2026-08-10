@@ -33,6 +33,18 @@ public class HoldDAO {
         }
     }
 
+    public java.util.Optional<AccountHold> findById(Connection conn, int holdId) throws SQLException {
+        String sql = "SELECT h.*, a.account_number FROM account_holds h " +
+                "JOIN accounts a ON a.account_id = h.account_id WHERE h.hold_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, holdId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return java.util.Optional.of(map(rs));
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     public BigDecimal activeHoldsTotal(Connection conn, int accountId) throws SQLException {
         String sql = "SELECT COALESCE(SUM(amount),0) FROM account_holds WHERE account_id = ? AND status = 'ACTIVE'";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

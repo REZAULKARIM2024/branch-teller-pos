@@ -121,6 +121,12 @@ public class HoldsPanel extends JPanel {
             reasonField.setText("");
             lookup();
             loadActive();
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): placeHold() can reject a non-positive amount (always could --
+            // this was previously uncaught here too) and, as of this review, a blank reason or an
+            // account that no longer exists. None of that was caught here before, so it would
+            // have crashed out of this button handler instead of showing a clear message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }
@@ -137,6 +143,11 @@ public class HoldsPanel extends JPanel {
             holdService.releaseHold(holdId, currentUser.getId());
             loadActive();
             if (currentAccount != null) lookup();
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            // QA finding (fixed): releaseHold() now rejects releasing an unknown or
+            // already-released hold instead of silently doing nothing -- shown here rather than
+            // left uncaught.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.cannotCompleteTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

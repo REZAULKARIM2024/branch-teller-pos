@@ -380,6 +380,8 @@ public class HelpPanel extends JPanel {
                 "<h2>Account Holds / Liens</h2>"
                 + "<p>Place a temporary hold on part of an account's balance &mdash; for a fraud investigation, "
                 + "a court order, or an uncleared cheque &mdash; without freezing the whole account.</p>"
+                + "<p><b>Who can access:</b> any teller can place or release a hold; every hold placed and every "
+                + "hold released is written to the audit trail (who, when, amount, reason).</p>"
                 + "<ol>"
                 + "<li>Look up the account. Its <b>available balance</b> (balance minus any active holds) is "
                 + "shown &mdash; this is the maximum a customer can actually withdraw or transfer.</li>"
@@ -388,7 +390,22 @@ public class HelpPanel extends JPanel {
                 + "<b>Release Selected Hold</b>.</li>"
                 + "</ol>"
                 + "<p>Holds are enforced automatically &mdash; the Teller Counter, Payments, and other modules "
-                + "will refuse a withdrawal that would dip into held funds.</p>");
+                + "will refuse a withdrawal that would dip into held funds.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A hold amount that's zero or negative &mdash; a hold has to actually restrict some money.</li>"
+                + "<li>A blank reason &mdash; every hold is a compliance-significant restriction on a customer's "
+                + "funds, so it must always be on record why it was placed.</li>"
+                + "<li>An account number that doesn't exist &mdash; shown as a clear message instead of a raw "
+                + "database error.</li>"
+                + "<li>Releasing a hold that's already been released, or an unknown hold ID &mdash; rejected so a "
+                + "double-click or a second teller can't quietly corrupt who-released-it-and-when records.</li>"
+                + "</ul>"
+                + "<p><b>One deliberate exception:</b> unlike the Teller Counter, Cheques, and Loans pages, "
+                + "Holds does <i>not</i> block a CLOSED account. A hold never moves money &mdash; it only "
+                + "restricts future withdrawals, which are already refused outright on a closed account anyway. "
+                + "Compliance staff still need to be able to record a fraud or court-order hold against an "
+                + "account precisely because it was just closed, so refusing that here would itself be a bug.</p>");
 
         // ------------------------------------------------------------------
         // 9. Cards

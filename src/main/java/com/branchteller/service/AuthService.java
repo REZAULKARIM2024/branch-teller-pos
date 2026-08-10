@@ -67,6 +67,17 @@ public class AuthService {
         }
     }
 
+    /**
+     * QA finding (fixed): the password UPDATE and its audit log entry used to run on two
+     * separate connections -- {@code userDAO.changePassword(...)} opened and committed its own
+     * connection internally, while the audit log used this method's own separate connection.
+     * That meant they could never fail or roll back together: if the audit insert failed for any
+     * reason (a transient DB error, a full disk, whatever), the password had *already* been
+     * permanently changed with zero record of who changed it or when -- for a security-sensitive
+     * action, that's exactly the kind of silent gap this codebase's other services (Compliance,
+     * Credit Scoring, Payroll) were already fixed for. Now both writes share one connection and
+     * one explicit transaction, matching that same established pattern.
+     */
     public void changePassword(User user, String currentPassword, String newPassword)
             throws SQLException, WeakPasswordException, WrongPasswordException {
         if (!PasswordUtil.verify(currentPassword, user.getSalt(), user.getPasswordHash())) {
@@ -78,8 +89,17 @@ public class AuthService {
         String salt = PasswordUtil.generateSalt();
         String hash = PasswordUtil.hash(newPassword, salt);
         try (Connection conn = DBConnection.getConnection()) {
-            userDAO.changePassword(user.getId(), hash, salt);
-            auditService.log(conn, user.getId(), "PASSWORD_CHANGED", "user", user.getId(), null, null);
+            conn.setAutoCommit(false);
+            try {
+                userDAO.changePassword(conn, user.getId(), hash, salt);
+                auditService.log(conn, user.getId(), "PASSWORD_CHANGED", "user", user.getId(), null, null);
+                conn.commit();
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
         user.setPasswordHash(hash);
         user.setSalt(salt);

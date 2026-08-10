@@ -643,14 +643,34 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("26. Security (All Users)",
                 "<h2>Security</h2>"
-                + "<p>Everyone can manage their own account security here:</p>"
+                + "<p><b>Who can access:</b> Everyone, at every role &mdash; this is self-service, so there's "
+                + "no separate admin view of other users' security settings.</p>"
+                + "<p><b>Change Password:</b> enter your current password once, plus the new password twice "
+                + "(to catch typos). The change is rejected, with a clear message, if:</p>"
                 + "<ul>"
-                + "<li><b>Change Password:</b> enter your current password plus a new one twice. New "
-                + "passwords must be at least 8 characters with an uppercase letter, a lowercase letter, a "
-                + "digit, and a symbol.</li>"
-                + "<li>The panel also shows whether two-factor authentication is enabled for your account, "
-                + "and your personal approval limit for withdrawals/transfers.</li>"
-                + "</ul>");
+                + "<li>The current password doesn't match what's on file.</li>"
+                + "<li>The two new-password fields don't match each other.</li>"
+                + "<li>The new password fails the bank's complexity policy: at least 8 characters, with an "
+                + "uppercase letter, a lowercase letter, a digit, and a symbol.</li>"
+                + "</ul>"
+                + "<p>A successful change takes effect immediately (your very next login uses the new "
+                + "password) and is recorded in the Audit Log as a <b>PASSWORD_CHANGED</b> entry against your "
+                + "user account.</p>"
+                + "<p>Below the form, the panel shows read-only information about your own account:</p>"
+                + "<ul>"
+                + "<li>Whether <b>one-time passcode (OTP)</b> sign-in is required for you. When enabled, "
+                + "logging in takes two steps: your password, then a 6-digit code (shown in a dialog, "
+                + "standing in for a real SMS/email delivery) valid for 5 minutes and usable only once.</li>"
+                + "<li>Your personal <b>approval limit</b> &mdash; any withdrawal or transfer you submit above "
+                + "this amount is queued for a manager to approve instead of executing immediately (see the "
+                + "Approvals topic).</li>"
+                + "</ul>"
+                + "<p>Neither the OTP requirement nor the approval limit can be changed from this screen &mdash; "
+                + "they're configured when the account is set up.</p>"
+                + "<p><b>Login lockout:</b> five wrong password attempts in a row locks the account; the login "
+                + "screen will say to contact an administrator. There is currently no in-app way (self-service "
+                + "or admin) to unlock a locked account or reset the failed-attempt counter &mdash; today that "
+                + "requires direct database access.</p>");
 
         // ------------------------------------------------------------------
         // FAQ

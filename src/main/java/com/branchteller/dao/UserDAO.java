@@ -57,10 +57,12 @@ public class UserDAO {
         }
     }
 
-    public void changePassword(int userId, String newHash, String newSalt) throws SQLException {
+    /** Uses the caller's existing connection/transaction -- see AuthService#changePassword's
+     *  javadoc for why this matters (it used to open its own separate connection here, so the
+     *  password update and its audit log entry could never commit or roll back together). */
+    public void changePassword(Connection conn, int userId, String newHash, String newSalt) throws SQLException {
         String sql = "UPDATE users SET password_hash = ?, salt = ?, password_last_changed = NOW() WHERE user_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, newHash);
             ps.setString(2, newSalt);
             ps.setInt(3, userId);

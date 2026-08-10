@@ -63,6 +63,22 @@ public final class TestDatabase {
                     "role VARCHAR(20) NOT NULL, " +
                     "branch_id INT, " +
                     "active BOOLEAN DEFAULT TRUE, " +
+                    // Phase 18 (security hardening) columns -- mirrors the ALTER TABLE statements
+                    // in database/schema.sql. These were missing from this shared test schema
+                    // entirely, so nothing could previously integration-test AuthService's login
+                    // lockout, OTP, or changePassword flows against a real (if in-memory) DB.
+                    "failed_login_attempts INT NOT NULL DEFAULT 0, " +
+                    "password_last_changed TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "otp_required BOOLEAN NOT NULL DEFAULT TRUE, " +
+                    "approval_limit DECIMAL(15,2) NOT NULL DEFAULT 5000.00, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            st.execute("CREATE TABLE login_otps (" +
+                    "otp_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "user_id INT NOT NULL, " +
+                    "otp_code VARCHAR(6) NOT NULL, " +
+                    "expires_at TIMESTAMP NOT NULL, " +
+                    "used BOOLEAN NOT NULL DEFAULT FALSE, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
             st.execute("CREATE TABLE customers (" +
@@ -321,6 +337,57 @@ public final class TestDatabase {
             ps.setInt(4, branchId);
             ps.executeUpdate();
             return generatedId(ps);
+        }
+    }
+
+    /** Inserts a user with a real, verifiable password (hashed the same way PasswordUtil/
+     *  AuthService hash and verify production passwords) -- needed for any test that drives
+     *  AuthService.verifyPassword()/changePassword() end to end rather than just asserting on
+     *  the DAO layer. */
+    public static int insertUserWithPassword(String usernamePrefix, String role, String plainPassword) throws SQLException {
+        String salt = com.branchteller.util.PasswordUtil.generateSalt();
+        String hash = com.branchteller.util.PasswordUtil.hash(plainPassword, salt);
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO users (username, password_hash, salt, full_name, role, active) " +
+                             "VALUES (?, ?, ?, ?, ?, TRUE)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            String username = usernamePrefix + nextSeq();
+            ps.setString(1, username);
+            ps.setString(2, hash);
+            ps.setString(3, salt);
+            ps.setString(4, "Test " + role);
+            ps.setString(5, role);
+            ps.executeUpdate();
+            return generatedId(ps);
+        }
+    }
+
+    /** Directly seeds a login_otps row with an explicit expiry -- bypassing AuthService.issueOtp()
+     *  so tests can construct an already-expired or already-used code deterministically. */
+    public static void insertOtpAt(int userId, String otpCode, java.time.LocalDateTime expiresAt, boolean used) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO login_otps (user_id, otp_code, expires_at, used) VALUES (?, ?, ?, ?)")) {
+            ps.setInt(1, userId);
+            ps.setString(2, otpCode);
+            ps.setTimestamp(3, java.sql.Timestamp.valueOf(expiresAt));
+            ps.setBoolean(4, used);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Reads a user's current failed_login_attempts counter -- used to prove lockout/reset
+     *  behavior without depending on AuthService's own read path. */
+    public static int failedLoginAttemptsOf(int userId) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT failed_login_attempts FROM users WHERE user_id = ?")) {
+            ps.setInt(1, userId);
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
         }
     }
 

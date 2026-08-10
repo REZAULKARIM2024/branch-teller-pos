@@ -34,6 +34,9 @@ public final class TestDatabase {
 
     private static final AtomicBoolean SCHEMA_READY = new AtomicBoolean(false);
     private static final AtomicLong SEQ = new AtomicLong(System.currentTimeMillis() % 1_000_000_000L);
+    /** Dedicated counter for {@link #uniqueHistoricalDate()} -- see that method's javadoc for why
+     *  this can't just reuse {@link #nextSeq()}. */
+    private static final AtomicLong HISTORICAL_DATE_SEQ = new AtomicLong(0);
 
     private TestDatabase() {}
 
@@ -597,12 +600,44 @@ public final class TestDatabase {
         }
     }
 
-    /** A date guaranteed (for all practical purposes) not to collide with any other test's
-     *  date in this run -- lets ReportService tests own a whole calendar day exclusively,
+    /** A date genuinely guaranteed not to collide with any other test's date in this run --
+     *  lets ReportService/GL/Financial-Reports tests own a whole calendar day exclusively,
      *  since the shared H2 database otherwise accumulates every other test's transactions
-     *  under today's real wall-clock date. */
+     *  under today's real wall-clock date.
+     *
+     * <p>QA finding (fixed): this used to be {@code LocalDate.of(2000, 1, 1).plusDays(nextSeq() % 3650)}
+     * -- i.e. it borrowed the same shared {@link #nextSeq()} counter used all over this class for
+     * phone numbers, account numbers, and unique entity names, then wrapped it into a ~10-year
+     * (3650-day) window. That's nowhere near "for all practical purposes" collision-free: {@code
+     * nextSeq()} is called far more than 3650 times over a run of this size once every test class's
+     * seeded phone numbers/usernames/reference codes are counted, so it wraps around and repeats --
+     * meaning two *different* tests can and do land on the exact same historical day, silently
+     * contaminating each other's "exclusively owned" date-boundary assertions. This was caught by
+     * {@code GlServiceIntegrationTest.journal_returnsLegsInChronologicalPostingOrder} failing with
+     * "expected: <4> but was: <6>" once JUnit 5's test order was pinned deterministic (see
+     * junit-platform.properties) -- under the JVM's previous non-deterministic default order this
+     * collision happened to land differently and the suite passed by luck, which is exactly the kind
+     * of environment-dependent flake that made local Windows runs and CI disagree. Fixed by giving
+     * this its own dedicated, never-wrapping counter instead of reusing {@code nextSeq()} or taking
+     * any modulus -- every call now gets a strictly distinct day, permanently.
+     *
+     * <p>Second QA finding (fixed in the same pass): the first fix used {@code
+     * .plusDays(HISTORICAL_DATE_SEQ.incrementAndGet())} -- i.e. consecutive calls got
+     * *adjacent* days (day, day+1, day+2, ...). That reintroduced the same class of bug in a
+     * new shape: several tests deliberately probe {@code day.minusDays(1)}/{@code
+     * day.plusDays(1)} (and up to {@code day.minusDays(10)} in
+     * {@code GlServiceIntegrationTest}'s ledger carry-forward regression test) as "must be
+     * excluded" boundary dates around their OWN exclusive day -- e.g.
+     * {@code journal_excludesEntriesOutsideTheDateBoundary} posts real entries on {@code
+     * day.plusDays(1)}. With a stride of exactly 1 day between allocations, that neighboring
+     * day could BE another test's "exclusively owned" day, so its own zero/exact-count
+     * assertions failed once real activity landed on it -- exactly what
+     * {@code ReportServiceIntegrationTest.exportDailyReportCsv_onDayWithNoActivity_stillWritesAValidZeroReport}
+     * and the two {@code GlServiceIntegrationTest.journal_*} tests hit. A stride of 100 days
+     * between allocations leaves every test's neighboring +/-10-day range (the widest offset
+     * used anywhere in the suite) entirely clear of any other test's slot. */
     public static LocalDate uniqueHistoricalDate() {
-        return LocalDate.of(2000, 1, 1).plusDays(nextSeq() % 3650);
+        return LocalDate.of(2000, 1, 1).plusDays(HISTORICAL_DATE_SEQ.incrementAndGet() * 100L);
     }
 
     /** Inserts a transaction row with an explicit created_at, bypassing BankingService/NOW()

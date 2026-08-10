@@ -569,9 +569,20 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("23. Audit Log (Admin)",
                 "<h2>Audit Log</h2>"
-                + "<p>A complete, read-only trail of every money-movement and account action taken in the "
-                + "system &mdash; who did it, when, and the before/after values. Use this to investigate any "
-                + "question about \"who did what.\"</p>");
+                + "<p><b>Who can access:</b> Admins only (not visible to Tellers or Branch Managers).</p>"
+                + "<p>A complete, read-only trail of security- and money-relevant actions taken across the "
+                + "whole system &mdash; who did it, when, and the before/after values. Every meaningful write "
+                + "in the app (deposits, withdrawals, transfers, KYC decisions, card actions, AML flag "
+                + "reviews, SAR/CTR filings, credit score computations, loan approvals, payroll runs, and "
+                + "more) logs an entry here as part of the same action, so the trail can't drift out of sync "
+                + "with what actually happened. Use this to investigate any question about \"who did what.\"</p>"
+                + "<p>Use the <b>Entity Type</b> dropdown to narrow the list to one kind of record &mdash; "
+                + "account, card, cheque, complaint, customer, employee, loan, pending_approval (maker-checker "
+                + "requests), regulatory_report (SAR/CTR filings), aml_flag, or user &mdash; or leave it on "
+                + "<b>ALL</b> and click <b>Refresh</b> to see everything, most recent first.</p>"
+                + "<p>An entry with no name under Actor means the action was taken by the system itself (for "
+                + "example, a customer's initial self-registration, before any teller is involved) rather than "
+                + "by a logged-in user.</p>");
 
         // ------------------------------------------------------------------
         // 24. Employees & Payroll (admin)

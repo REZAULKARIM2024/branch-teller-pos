@@ -764,6 +764,29 @@ public class HelpPanel extends JPanel {
                 + "screen \"should\" work.</p>");
 
         // ------------------------------------------------------------------
+        // 28. About
+        // ------------------------------------------------------------------
+        topics.put("28. About",
+                "<h2>About</h2>"
+                + "<p><b>Who can access:</b> Everyone, at every role &mdash; it's the last tab, right after "
+                + "Help.</p>"
+                + "<p>A read-only reference page: the bank's name, a short description of the platform, the "
+                + "full list of modules the application offers (grouped by who can access each one &mdash; "
+                + "Teller/Manager/Admin, exactly matching what you actually see on your own tab bar), the "
+                + "main branch's address and contact details, and a version line. Nothing on this page is "
+                + "editable or clickable &mdash; there's no form to submit, so there's nothing to validate; "
+                + "the only thing that can go wrong here is the page saying something that isn't true.</p>"
+                + "<p>That's exactly the kind of bug this page had until recently: its Modules list only "
+                + "mentioned 11 of the application's 25 real tabs, silently missing more than half of what "
+                + "the app actually does (Products &amp; Services, Holds, Cards, Standing Instructions, "
+                + "Payments, Complaints, Notifications, Approvals, General Ledger, Financial Reports, "
+                + "Compliance, Credit Scoring, Branches, and Security were all left off) &mdash; almost "
+                + "certainly because this page was written early on and never updated as later phases added "
+                + "those features. It's fixed now, and the list is checked automatically against the same "
+                + "tab names the rest of the app actually uses, so this specific kind of staleness can't "
+                + "quietly come back the next time a module is added without anyone noticing.</p>");
+
+        // ------------------------------------------------------------------
         // FAQ
         // ------------------------------------------------------------------
         topics.put("FAQ / Troubleshooting",

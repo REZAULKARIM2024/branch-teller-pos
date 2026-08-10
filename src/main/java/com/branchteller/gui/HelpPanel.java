@@ -589,11 +589,22 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("24. Employees & Payroll (Admin)",
                 "<h2>Employees &amp; Payroll</h2>"
+                + "<p><b>Who can access:</b> Admins only (not visible to Tellers or Branch Managers).</p>"
                 + "<ol>"
-                + "<li>Maintain staff records: name, position, hourly rate.</li>"
-                + "<li>Employees <b>Clock In</b>/<b>Clock Out</b> for their shifts.</li>"
-                + "<li><b>Run Payroll</b> for a period to compute gross pay, tax withheld, and net pay from "
-                + "clocked hours; history is kept per employee.</li>"
+                + "<li><b>Hire</b> a new staff member with a name, position, and hourly rate. The rate must "
+                + "be a positive number &mdash; a blank name/position or a zero/negative rate is rejected "
+                + "before anything is saved (a negative rate would otherwise flow straight into payroll math "
+                + "and post a backwards-looking General Ledger entry, so this is checked up front).</li>"
+                + "<li>Select an employee in the roster and use <b>Clock In</b>/<b>Clock Out</b> to record "
+                + "their shifts. You can't clock in twice without clocking out first, and you can't clock out "
+                + "without an open shift.</li>"
+                + "<li><b>Run Payroll</b> for a selected employee over a From/To date range: gross pay = "
+                + "hours worked (from closed, clocked-out shifts starting inside that range) &times; hourly "
+                + "rate, a flat 20% is withheld as tax, and the rest is net pay. Each run is saved to that "
+                + "employee's payroll history (most recent first) and posts a Salaries Expense / Cash entry "
+                + "to the General Ledger for the net pay &mdash; unless net pay is exactly $0.00 (nothing "
+                + "worked that period), in which case the run is still recorded but no GL entry is posted, "
+                + "the same way a $0.00 interest accrual posts nothing.</li>"
                 + "</ol>");
 
         // ------------------------------------------------------------------

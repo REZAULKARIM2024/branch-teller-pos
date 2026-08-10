@@ -32,7 +32,29 @@ public class PayrollService {
     private final AuditService auditService = new AuditService();
     private final GlService glService = new GlService();
 
+    /**
+     * QA finding (fixed): this had zero input validation -- a blank name, or a null/zero/negative
+     * hourly rate, was silently accepted and written straight to the employees table. A negative
+     * rate is the dangerous one: {@link GlService#post} only skips exactly-zero amounts (its guard
+     * is {@code amount.signum() == 0}), NOT negative ones. So running payroll for an employee hired
+     * at, say, "-18.50" (an easy typo for "18.50") would compute a negative net pay and post a
+     * "balanced" GL entry with the debit/credit roles economically reversed -- Salaries Expense
+     * (5100) would go DOWN and Cash (1000) would go UP, as if paying an employee somehow generated
+     * cash for the bank -- without ever tripping the double-entry invariant, since debits still
+     * equal credits (just with reversed sign). There's no REST API for hiring, so the GUI's own
+     * hire-form was the only guard, and that only checked for blank name/position, never the rate's
+     * sign. Validating here closes it off at the one real entry point.
+     */
     public Employee hire(String fullName, String position, BigDecimal hourlyRate) throws SQLException {
+        if (fullName == null || fullName.isBlank()) {
+            throw new IllegalArgumentException("Employee full name is required");
+        }
+        if (position == null || position.isBlank()) {
+            throw new IllegalArgumentException("Employee position is required");
+        }
+        if (hourlyRate == null || hourlyRate.signum() <= 0) {
+            throw new IllegalArgumentException("Hourly rate must be a positive amount");
+        }
         try (Connection conn = DBConnection.getConnection()) {
             Employee e = new Employee();
             e.setFullName(fullName);

@@ -122,6 +122,8 @@ public class EmployeePanel extends JPanel {
             positionField.setText("");
             rateField.setText("");
             loadRoster();
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

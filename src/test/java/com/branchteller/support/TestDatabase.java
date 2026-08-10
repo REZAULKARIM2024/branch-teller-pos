@@ -277,6 +277,21 @@ public final class TestDatabase {
                     "rating VARCHAR(20) NOT NULL, " +
                     "computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // QA finding (fixed): this table was missing from the test schema entirely, even
+            // though CashDrawerService/CashDrawerDAO have existed since early in the project --
+            // meaning the Cash Drawer feature could never have been integration-tested against a
+            // real (if in-memory) database before this review. Columns mirror database/schema.sql's
+            // cash_drawer_logs table, with the ENUM narrowed to VARCHAR like every other
+            // enum-shaped column elsewhere in this hand-written test schema (e.g. accounts.status).
+            st.execute("CREATE TABLE cash_drawer_logs (" +
+                    "log_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "teller_id INT NOT NULL, " +
+                    "branch_id INT NOT NULL, " +
+                    "action VARCHAR(20) NOT NULL, " +
+                    "amount DECIMAL(15,2) NOT NULL DEFAULT 0.00, " +
+                    "note VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

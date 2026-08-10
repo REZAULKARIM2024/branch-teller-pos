@@ -82,6 +82,13 @@ public class DrawerPanel extends JPanel {
             amountField.setText("");
             noteField.setText("");
             loadRecent();
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): CashDrawerService.record() now validates the action/amount
+            // (see its javadoc) and throws IllegalArgumentException for things like a $0.00
+            // PAID_IN or a nonzero NO_SALE -- previously uncaught here, that would have
+            // propagated out of this button handler as an unhandled exception instead of
+            // showing the teller a clear message explaining what to fix.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

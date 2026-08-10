@@ -226,14 +226,32 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("3. Cash Drawer",
                 "<h2>Cash Drawer</h2>"
-                + "<p>Track the physical cash in your till separately from customer account balances.</p>"
+                + "<p>Track the physical cash in your till separately from customer account balances -- "
+                + "this never touches an account's balance, it's just your own log, visible only to you, "
+                + "for reconciliation at end of shift.</p>"
+                + "<p><b>Who can access:</b> Everyone, at every role.</p>"
                 + "<ol>"
                 + "<li>Pick an action: <b>TILL_COUNT</b> (start/end of shift count), <b>PAID_IN</b>, "
                 + "<b>PAID_OUT</b>, <b>CASH_PULL</b> (excess cash removed to the vault), or <b>NO_SALE</b> "
                 + "(drawer opened with no transaction).</li>"
                 + "<li>Enter the amount and an optional note, then submit.</li>"
                 + "</ol>"
-                + "<p>The log below shows your drawer history for reconciliation at end of shift.</p>");
+                + "<p>The log below shows your drawer history for reconciliation at end of shift.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A negative amount is always rejected &mdash; there's no such thing as a negative "
+                + "amount of physical cash.</li>"
+                + "<li><b>PAID_IN</b>, <b>PAID_OUT</b>, and <b>CASH_PULL</b> are real cash movements, so a "
+                + "$0.00 amount is rejected as not actually being one.</li>"
+                + "<li><b>NO_SALE</b> isn't a cash movement at all &mdash; it just logs that the drawer was "
+                + "opened with no transaction &mdash; so its amount must be exactly $0.00.</li>"
+                + "<li><b>TILL_COUNT</b> is a point-in-time count of the whole drawer, not a movement, so "
+                + "$0.00 is allowed (e.g. a drawer counted out and handed back empty) &mdash; only a "
+                + "negative count is rejected.</li>"
+                + "</ul>"
+                + "<p>The note field is always optional, even for <b>CASH_PULL</b>/<b>PAID_OUT</b> where a "
+                + "real bank would usually want one for audit purposes &mdash; a known limitation, worth "
+                + "keeping in mind when reconciling at end of shift.</p>");
 
         // ------------------------------------------------------------------
         // 4. Cheques

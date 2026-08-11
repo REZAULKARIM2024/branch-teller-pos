@@ -308,6 +308,24 @@ public final class TestDatabase {
                     "clear_date DATE NULL, " +
                     "note VARCHAR(255))");
 
+            // QA finding (fixed): same gap as cash_drawer_logs/cheques above -- CardService/
+            // CardDAO have existed since early in the project, but this table was never added to
+            // the shared test schema, so the Cards feature could never have been
+            // integration-tested against a real database before this review. Columns mirror
+            // database/schema.sql's cards table, ENUMs narrowed to VARCHAR per this file's
+            // existing convention.
+            st.execute("CREATE TABLE cards (" +
+                    "card_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "account_id INT NOT NULL, " +
+                    "card_number VARCHAR(20) UNIQUE NOT NULL, " +
+                    "card_type VARCHAR(10) NOT NULL, " +
+                    "cardholder_name VARCHAR(100) NOT NULL, " +
+                    "expiry_date DATE NOT NULL, " +
+                    "credit_limit DECIMAL(15,2) NULL, " +
+                    "daily_limit DECIMAL(15,2) NOT NULL DEFAULT 1000.00, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', " +
+                    "issued_date DATE NOT NULL)");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

@@ -48,6 +48,17 @@ public class CardDAO {
         }
     }
 
+    public java.util.Optional<Card> findById(Connection conn, int cardId) throws SQLException {
+        String sql = "SELECT c.*, a.account_number FROM cards c JOIN accounts a ON a.account_id = c.account_id WHERE c.card_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, cardId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return java.util.Optional.of(map(rs));
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<Card> findAll(Connection conn) throws SQLException {
         String sql = "SELECT c.*, a.account_number FROM cards c JOIN accounts a ON a.account_id = c.account_id ORDER BY c.card_id DESC";
         List<Card> results = new ArrayList<>();

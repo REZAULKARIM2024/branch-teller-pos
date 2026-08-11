@@ -412,6 +412,8 @@ public class HelpPanel extends JPanel {
         // ------------------------------------------------------------------
         topics.put("9. Card Management",
                 "<h2>Card Management</h2>"
+                + "<p><b>Who can access:</b> any teller can issue and manage cards; every issue, block, "
+                + "unblock, cancel, and PIN reset is written to the audit trail.</p>"
                 + "<ol>"
                 + "<li>Enter the <b>Account #</b>, choose <b>DEBIT</b> or <b>CREDIT</b>, and (for CREDIT) a "
                 + "credit limit, then click <b>Issue Card</b>. A masked card number and expiry date are shown.</li>"
@@ -419,7 +421,23 @@ public class HelpPanel extends JPanel {
                 + "<b>Cancel Card</b> permanently, or <b>Reset PIN</b> (a new simulated PIN is generated and "
                 + "shown once &mdash; share it with the cardholder securely).</li>"
                 + "</ol>"
-                + "<p>Card numbers are always masked on screen (<i>**** **** **** 1234</i>) for security.</p>");
+                + "<p>Card numbers are always masked on screen (<i>**** **** **** 1234</i>) for security.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A card type other than DEBIT or CREDIT, a blank cardholder name, or a negative "
+                + "credit limit &mdash; caught here with a clear message instead of a raw database error.</li>"
+                + "<li>Issuing a card against an account that doesn't exist, or one that's CLOSED &mdash; a "
+                + "card is a new instrument that enables future spending, so (unlike a Hold) it follows the "
+                + "same CLOSED-blocks rule as Cheques and Loans.</li>"
+                + "<li><b>Block</b> only works on an ACTIVE card, and <b>Unblock</b> only works on a BLOCKED "
+                + "one &mdash; in particular, a CANCELLED card can never be unblocked back to ACTIVE. Cards "
+                + "are permanently terminated once cancelled, the same way a shredded physical card can't be "
+                + "taped back together.</li>"
+                + "<li><b>Cancel</b> works from either ACTIVE or BLOCKED, but rejects a card that's already "
+                + "CANCELLED.</li>"
+                + "<li><b>Reset PIN</b> is rejected on a CANCELLED card (there's no card left to use the PIN "
+                + "with), but still allowed on a BLOCKED one, since blocking is reversible.</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 10. Standing Instructions

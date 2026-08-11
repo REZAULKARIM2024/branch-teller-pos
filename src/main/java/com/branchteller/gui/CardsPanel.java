@@ -101,6 +101,12 @@ public class CardsPanel extends JPanel {
             loadAll();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("common.invalidAmountMsg"), Messages.tr("common.invalidAmountTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): issue() can now reject an invalid card type, a blank
+            // cardholder name, a negative credit limit, an unknown account, or a CLOSED account
+            // -- none of that was caught here before, so it would have crashed out of this
+            // button handler instead of showing a clear message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }
@@ -116,6 +122,10 @@ public class CardsPanel extends JPanel {
         try {
             String newPin = cardService.resetPin(cardId, currentUser.getId());
             JOptionPane.showMessageDialog(this, Messages.tr("cards.newPinMsg", newPin));
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            // QA finding (fixed): resetPin() now rejects an unknown or CANCELLED card instead of
+            // silently issuing a PIN for it -- shown here rather than left uncaught.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.cannotCompleteTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }
@@ -132,7 +142,16 @@ public class CardsPanel extends JPanel {
     }
 
     private void silently(SqlRunnable r) {
-        try { r.run(); } catch (SQLException ex) { showDbError(ex); }
+        try {
+            r.run();
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            // QA finding (fixed): block()/unblock()/cancel() now enforce a state-machine guard
+            // (e.g. can't unblock a card that isn't BLOCKED) instead of silently no-op'ing --
+            // shown here rather than left uncaught, which would have crashed this button handler.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.cannotCompleteTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (SQLException ex) {
+            showDbError(ex);
+        }
     }
 
     @FunctionalInterface

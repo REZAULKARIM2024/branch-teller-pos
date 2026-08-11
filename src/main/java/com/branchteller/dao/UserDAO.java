@@ -28,6 +28,22 @@ public class UserDAO {
         return Optional.empty();
     }
 
+    /** QA finding (fixed): ComplaintService.assign() used to hand assigned_to straight to the
+     *  UPDATE statement with no check that the user actually exists -- an unknown/typo'd staff
+     *  ID only failed with a raw FK-violation SQLException instead of a clear message. Takes the
+     *  caller's connection (unlike the methods above, which each open their own) so it can be
+     *  called from inside another service's existing transaction. */
+    public Optional<User> findById(Connection conn, int userId) throws SQLException {
+        String sql = "SELECT * FROM users WHERE user_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return Optional.of(map(rs));
+            }
+        }
+        return Optional.empty();
+    }
+
     public List<User> findAll() throws SQLException {
         String sql = "SELECT * FROM users WHERE active = TRUE ORDER BY full_name";
         List<User> results = new ArrayList<>();

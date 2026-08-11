@@ -102,6 +102,11 @@ public class ComplaintsPanel extends JPanel {
             loadAll();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("common.enterNumericIdMsg"), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): log() can now reject an unknown customer ID or a description
+            // over 500 characters -- neither was caught here before, so it would have crashed
+            // out of this button handler instead of showing a message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }
@@ -139,7 +144,17 @@ public class ComplaintsPanel extends JPanel {
     }
 
     private void silently(SqlRunnable r) {
-        try { r.run(); } catch (SQLException ex) { showDbError(ex); }
+        try {
+            r.run();
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            // QA finding (fixed): assign()/resolve()/close() can now reject a CLOSED complaint
+            // (terminal state), an unknown complaint ID, an unknown assignee, or a blank/too-long
+            // resolution note -- none of that was caught here before, so it would have crashed
+            // out of the button handler.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (SQLException ex) {
+            showDbError(ex);
+        }
     }
 
     @FunctionalInterface

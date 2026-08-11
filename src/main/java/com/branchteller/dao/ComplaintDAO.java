@@ -5,8 +5,25 @@ import com.branchteller.model.Complaint;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class ComplaintDAO {
+
+    /** QA finding (fixed): ComplaintService's assign()/resolve()/close() used to update a
+     *  complaint by ID with no way to check whether it existed or what state it was currently
+     *  in -- an unknown ID silently updated zero rows, and there was nothing to stop
+     *  "reassigning" or "re-resolving" a complaint that had already been CLOSED. This lookup
+     *  lets the service check both before mutating. */
+    public Optional<Complaint> findById(Connection conn, int complaintId) throws SQLException {
+        String sql = "SELECT * FROM complaints WHERE complaint_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, complaintId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return Optional.of(mapBasic(rs));
+            }
+        }
+        return Optional.empty();
+    }
 
     public int insert(Connection conn, Complaint c) throws SQLException {
         String sql = "INSERT INTO complaints (customer_id, category, description, priority) VALUES (?, ?, ?, ?)";
@@ -59,6 +76,22 @@ public class ComplaintDAO {
             while (rs.next()) results.add(map(rs));
         }
         return results;
+    }
+
+    /** Bare row mapper for {@link #findById} -- unlike {@link #map}, this doesn't rely on the
+     *  customer_name/assigned_to_name columns that only exist after {@link #findAll}'s JOINs, so
+     *  it's safe to use against a plain {@code SELECT * FROM complaints}. */
+    private Complaint mapBasic(ResultSet rs) throws SQLException {
+        Complaint c = new Complaint();
+        c.setId(rs.getInt("complaint_id"));
+        c.setCustomerId(rs.getInt("customer_id"));
+        c.setCategory(rs.getString("category"));
+        c.setDescription(rs.getString("description"));
+        c.setStatus(rs.getString("status"));
+        c.setPriority(rs.getString("priority"));
+        int assignedTo = rs.getInt("assigned_to");
+        c.setAssignedTo(rs.wasNull() ? null : assignedTo);
+        return c;
     }
 
     private Complaint map(ResultSet rs) throws SQLException {

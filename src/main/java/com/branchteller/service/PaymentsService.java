@@ -11,6 +11,7 @@ import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Simulated external payment rails: NEFT/RTGS/Wire outbound transfers to other banks,
@@ -20,6 +21,7 @@ import java.util.List;
 public class PaymentsService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Set<String> VALID_TRANSFER_TYPES = Set.of("NEFT", "RTGS", "WIRE");
 
     private final PaymentsDAO paymentsDAO = new PaymentsDAO();
     private final AccountDAO accountDAO = new AccountDAO();
@@ -29,16 +31,44 @@ public class PaymentsService {
     private final GlService glService = new GlService();
     private final HoldService holdService = new HoldService();
 
+    /**
+     * QA finding (fixed): this method used to accept any transferType string at all (production's
+     * MySQL ENUM would eventually reject a bad one with a raw error, but this project's H2 test
+     * schema doesn't enforce that, and even in production it's a confusing failure instead of a
+     * clear message), and never validated beneficiaryName/beneficiaryBank/beneficiaryAccount/
+     * routingSwift beyond what the GUI happened to send -- all four are NOT NULL in the schema,
+     * but a blank string still satisfies NOT NULL, so an empty beneficiary name was silently
+     * accepted and money left the account with no real record of where it went. Also newly
+     * rejects a CLOSED account, the same "CLOSED blocks, DORMANT doesn't" rule already applied to
+     * Teller Counter/Cheques/Loans/Cards/Standing Instructions -- an external transfer moves
+     * money out, exactly like those.
+     */
     public ExternalTransfer initiateExternalTransfer(int accountId, String transferType, String beneficiaryName,
                                                        String beneficiaryBank, String beneficiaryAccount, String routingSwift,
                                                        BigDecimal amount, int initiatedBy) throws SQLException, InsufficientFundsException {
         if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+        if (transferType == null || !VALID_TRANSFER_TYPES.contains(transferType)) {
+            throw new IllegalArgumentException("Transfer type must be NEFT, RTGS, or WIRE, got: " + transferType);
+        }
+        if (beneficiaryName == null || beneficiaryName.isBlank()) {
+            throw new IllegalArgumentException("Beneficiary name is required");
+        }
+        if (beneficiaryBank == null || beneficiaryBank.isBlank()) {
+            throw new IllegalArgumentException("Beneficiary bank is required");
+        }
+        if (beneficiaryAccount == null || beneficiaryAccount.isBlank()) {
+            throw new IllegalArgumentException("Beneficiary account is required");
+        }
+        if (routingSwift == null || routingSwift.isBlank()) {
+            throw new IllegalArgumentException("Routing/SWIFT code is required");
+        }
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
             try {
                 Account acct = accountDAO.findByIdForUpdate(conn, accountId)
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+                requireNotClosed(acct, "send an external transfer");
 
                 BigDecimal held = holdService.activeHoldsTotal(conn, accountId);
                 BigDecimal available = acct.getBalance().subtract(held);
@@ -96,6 +126,11 @@ public class PaymentsService {
         }
     }
 
+    /**
+     * QA finding (fixed): used to accept any billerId at all -- an unknown one only failed with a
+     * raw foreign-key SQLException instead of a clear message. Also newly rejects a CLOSED
+     * account for the same reason as {@link #initiateExternalTransfer}.
+     */
     public BillPayment payBill(int accountId, int billerId, BigDecimal amount, int paidBy) throws SQLException, InsufficientFundsException {
         if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
 
@@ -104,6 +139,9 @@ public class PaymentsService {
             try {
                 Account acct = accountDAO.findByIdForUpdate(conn, accountId)
                         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+                requireNotClosed(acct, "pay a bill from");
+                paymentsDAO.findBillerById(conn, billerId)
+                        .orElseThrow(() -> new IllegalArgumentException("Biller not found: " + billerId));
 
                 BigDecimal held = holdService.activeHoldsTotal(conn, accountId);
                 BigDecimal available = acct.getBalance().subtract(held);
@@ -146,6 +184,15 @@ public class PaymentsService {
     public List<BillPayment> recentBillPayments(int limit) throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             return paymentsDAO.findBillPayments(conn, limit);
+        }
+    }
+
+    /** Same "CLOSED blocks, DORMANT doesn't" rule as {@code BankingService}'s helper of the same
+     *  name -- duplicated locally since that one is private to its own class. */
+    private void requireNotClosed(Account acct, String action) {
+        if ("CLOSED".equals(acct.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Account " + acct.getAccountNumber() + " is closed and cannot " + action);
         }
     }
 }

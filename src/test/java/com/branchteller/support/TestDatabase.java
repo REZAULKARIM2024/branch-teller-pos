@@ -352,6 +352,49 @@ public final class TestDatabase {
                     "detail VARCHAR(255), " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // QA finding (fixed): same gap as cards/holds/cash_drawer_logs/cheques/standing_*
+            // above -- PaymentsService/PaymentsDAO have existed since early in the project, but
+            // these tables were never added to the shared test schema, so the Payments feature
+            // could never have been integration-tested against a real database before this
+            // review. Columns mirror database/schema.sql's external_transfers/billers/
+            // bill_payments tables, ENUMs narrowed to VARCHAR per this file's existing
+            // convention, and billers seeded with the same fictional sample data as production.
+            st.execute("CREATE TABLE external_transfers (" +
+                    "ext_transfer_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "account_id INT NOT NULL, " +
+                    "transfer_type VARCHAR(10) NOT NULL, " +
+                    "beneficiary_name VARCHAR(100) NOT NULL, " +
+                    "beneficiary_bank VARCHAR(100) NOT NULL, " +
+                    "beneficiary_account VARCHAR(30) NOT NULL, " +
+                    "routing_swift VARCHAR(20) NOT NULL, " +
+                    "amount DECIMAL(15,2) NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'INITIATED', " +
+                    "reference_no VARCHAR(30) UNIQUE NOT NULL, " +
+                    "initiated_by INT NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "completed_at TIMESTAMP NULL)");
+
+            st.execute("CREATE TABLE billers (" +
+                    "biller_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "name VARCHAR(100) NOT NULL, " +
+                    "category VARCHAR(50) NOT NULL)");
+
+            st.execute("INSERT INTO billers (name, category) VALUES " +
+                    "('Con Edison Electric', 'Utilities'), " +
+                    "('National Grid Gas', 'Utilities'), " +
+                    "('Verizon Wireless', 'Telecom'), " +
+                    "('NY Financial Bank Credit Card', 'Credit Card')");
+
+            st.execute("CREATE TABLE bill_payments (" +
+                    "payment_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "account_id INT NOT NULL, " +
+                    "biller_id INT NOT NULL, " +
+                    "reference_no VARCHAR(30) UNIQUE NOT NULL, " +
+                    "amount DECIMAL(15,2) NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED', " +
+                    "paid_by INT NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

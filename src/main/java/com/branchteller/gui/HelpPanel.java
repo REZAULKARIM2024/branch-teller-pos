@@ -492,7 +492,17 @@ public class HelpPanel extends JPanel {
                 + "<li>Enter the <b>Account #</b>, choose a registered <b>Biller</b> (utilities, telecom, "
                 + "credit card, government, etc.), enter the amount, and click <b>Pay Bill</b>.</li>"
                 + "</ol>"
-                + "<p>Both screens keep a running history table of everything sent.</p>");
+                + "<p>Both screens keep a running history table of everything sent.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A zero/negative amount, or (for wires) a transfer type other than NEFT/RTGS/WIRE, or a "
+                + "blank beneficiary name, bank, account number, or routing/SWIFT code &mdash; caught here "
+                + "with a clear message instead of leaving money sent with no real record of where it went.</li>"
+                + "<li>A billers list entry that no longer exists &mdash; shown as a clear message instead of a "
+                + "raw database error.</li>"
+                + "<li>Sending from an account that doesn't exist, is CLOSED, or doesn't have enough available "
+                + "balance (checked against balance minus any active holds, same as the Teller Counter).</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 12. Complaints

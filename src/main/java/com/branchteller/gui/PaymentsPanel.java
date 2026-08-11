@@ -144,6 +144,11 @@ public class PaymentsPanel extends JPanel {
             loadWireHistory();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("common.invalidAmountMsg"), Messages.tr("common.invalidAmountTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): initiateExternalTransfer() can now reject an invalid transfer
+            // type, a blank beneficiary field, or a CLOSED account -- none of that was caught
+            // here before, so it would have crashed out of this button handler.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (InsufficientFundsException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("payments.insufficientFundsTitle"), JOptionPane.ERROR_MESSAGE);
         } catch (SQLException ex) {
@@ -170,6 +175,11 @@ public class PaymentsPanel extends JPanel {
             loadBillHistory();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("common.invalidAmountMsg"), Messages.tr("common.invalidAmountTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): payBill() can now reject an unknown biller or a CLOSED account
+            // -- neither was caught here before, so it would have crashed out of this button
+            // handler.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (InsufficientFundsException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("payments.insufficientFundsTitle"), JOptionPane.ERROR_MESSAGE);
         } catch (SQLException ex) {

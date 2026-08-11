@@ -63,6 +63,23 @@ public class PaymentsDAO {
         return results;
     }
 
+    public java.util.Optional<Biller> findBillerById(Connection conn, int billerId) throws SQLException {
+        String sql = "SELECT biller_id, name, category FROM billers WHERE biller_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, billerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Biller b = new Biller();
+                    b.setId(rs.getInt(1));
+                    b.setName(rs.getString(2));
+                    b.setCategory(rs.getString(3));
+                    return java.util.Optional.of(b);
+                }
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<Biller> findBillers(Connection conn) throws SQLException {
         String sql = "SELECT biller_id, name, category FROM billers ORDER BY category, name";
         List<Biller> results = new ArrayList<>();

@@ -106,6 +106,12 @@ public class StandingInstructionsPanel extends JPanel {
             loadAll();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, Messages.tr("common.invalidAmountMsg"), Messages.tr("common.invalidAmountTitle"), JOptionPane.WARNING_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            // QA finding (fixed): create() can now reject a non-positive amount, an invalid
+            // frequency, a blank/unknown destination account, a CLOSED source account, or a
+            // same-account instruction -- none of that was caught here before, so it would have
+            // crashed out of this button handler instead of showing a clear message.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.invalidInputTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }
@@ -139,6 +145,11 @@ public class StandingInstructionsPanel extends JPanel {
     private void silently(SqlRunnable r) {
         try {
             r.run();
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            // QA finding (fixed): pause()/resume()/cancel() now enforce a state-machine guard
+            // (e.g. can't resume an instruction that isn't PAUSED) instead of silently no-op'ing
+            // -- shown here rather than left uncaught, which would have crashed this button handler.
+            JOptionPane.showMessageDialog(this, ex.getMessage(), Messages.tr("common.cannotCompleteTitle"), JOptionPane.WARNING_MESSAGE);
         } catch (SQLException ex) {
             showDbError(ex);
         }

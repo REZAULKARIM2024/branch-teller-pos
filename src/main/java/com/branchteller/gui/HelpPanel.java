@@ -455,7 +455,24 @@ public class HelpPanel extends JPanel {
                 + "advances its schedule. Results (success/failure per instruction) are shown afterward.</li>"
                 + "</ol>"
                 + "<p>In a production deployment this batch job would run automatically overnight; here it's "
-                + "triggered manually with the button so you can see it work.</p>");
+                + "triggered manually with the button so you can see it work.</p>"
+                + "<p><b>What gets rejected, and why:</b></p>"
+                + "<ul>"
+                + "<li>A zero/negative amount, an unrecognized frequency, a blank destination account, or a "
+                + "destination account number that doesn't exist &mdash; caught at setup time instead of "
+                + "sitting silently until the instruction actually tries to run.</li>"
+                + "<li>A From Account that doesn't exist, is CLOSED, or is the same as the To Account &mdash; a "
+                + "standing instruction repeatedly pulls money from the source, so it follows the same "
+                + "CLOSED-blocks rule as Cheques/Loans/Cards.</li>"
+                + "<li><b>Pause</b> only works on an ACTIVE instruction, and <b>Resume</b> only works on a "
+                + "PAUSED one &mdash; a CANCELLED instruction can never be resumed back to ACTIVE, the same way "
+                + "a cancelled card can't be unblocked.</li>"
+                + "<li><b>Cancel</b> works from either ACTIVE or PAUSED, but rejects an instruction that's "
+                + "already CANCELLED.</li>"
+                + "</ul>"
+                + "<p><b>If one instruction fails when the batch runs</b> (for example its account was closed "
+                + "sometime after it was set up), only that one instruction is marked FAILED &mdash; every "
+                + "other due instruction still runs normally in the same batch.</p>");
 
         // ------------------------------------------------------------------
         // 11. Payments

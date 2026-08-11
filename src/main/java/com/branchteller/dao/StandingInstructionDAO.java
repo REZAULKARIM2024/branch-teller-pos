@@ -27,6 +27,18 @@ public class StandingInstructionDAO {
         return -1;
     }
 
+    public java.util.Optional<StandingInstruction> findById(Connection conn, int id) throws SQLException {
+        String sql = "SELECT si.*, a.account_number AS from_account_number FROM standing_instructions si " +
+                "JOIN accounts a ON a.account_id = si.from_account_id WHERE si.instruction_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return java.util.Optional.of(map(rs));
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     public List<StandingInstruction> findAll(Connection conn) throws SQLException {
         String sql = "SELECT si.*, a.account_number AS from_account_number FROM standing_instructions si " +
                 "JOIN accounts a ON a.account_id = si.from_account_id ORDER BY si.next_run_date";

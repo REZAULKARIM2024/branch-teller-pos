@@ -326,6 +326,32 @@ public final class TestDatabase {
                     "status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', " +
                     "issued_date DATE NOT NULL)");
 
+            // QA finding (fixed): same gap as cards/cash_drawer_logs/cheques above --
+            // StandingInstructionService/StandingInstructionDAO have existed since early in the
+            // project, but these tables were never added to the shared test schema, so the
+            // Standing Instructions feature could never have been integration-tested against a
+            // real database before this review. Columns mirror database/schema.sql's
+            // standing_instructions/standing_instruction_runs tables, ENUMs narrowed to VARCHAR
+            // per this file's existing convention.
+            st.execute("CREATE TABLE standing_instructions (" +
+                    "instruction_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "from_account_id INT NOT NULL, " +
+                    "to_account_number VARCHAR(20) NOT NULL, " +
+                    "amount DECIMAL(15,2) NOT NULL, " +
+                    "frequency VARCHAR(10) NOT NULL DEFAULT 'MONTHLY', " +
+                    "next_run_date DATE NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', " +
+                    "note VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            st.execute("CREATE TABLE standing_instruction_runs (" +
+                    "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "instruction_id INT NOT NULL, " +
+                    "run_date DATE NOT NULL, " +
+                    "status VARCHAR(10) NOT NULL, " +
+                    "detail VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

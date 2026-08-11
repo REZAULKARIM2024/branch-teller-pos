@@ -514,8 +514,27 @@ public class HelpPanel extends JPanel {
                 + "the issue, and click <b>Log Complaint</b>. It starts in <b>OPEN</b> status.</li>"
                 + "<li>Click <b>Assign to Me</b> to take ownership &mdash; status moves to <b>IN_PROGRESS</b>.</li>"
                 + "<li>Once fixed, select it and click <b>Resolve Selected</b>, then enter a resolution note.</li>"
-                + "<li><b>Close Selected</b> archives a resolved complaint.</li>"
-                + "</ol>");
+                + "<li><b>Close Selected</b> archives a complaint. A complaint doesn't have to be resolved "
+                + "first &mdash; a duplicate or withdrawn complaint can be closed straight from OPEN.</li>"
+                + "</ol>"
+                + "<h3>What gets rejected, and why</h3>"
+                + "<ul>"
+                + "<li>Logging a complaint with a blank description, a description over 500 characters, or "
+                + "an unrecognized priority &mdash; caught before it ever reaches the database.</li>"
+                + "<li>Logging a complaint for a customer ID that doesn't exist &mdash; shown as a clear "
+                + "message instead of a raw database error.</li>"
+                + "<li><b>CLOSED is final.</b> Once a complaint is closed, it can't be reassigned or "
+                + "resolved again &mdash; both are rejected with a clear message. Without this, a closed "
+                + "complaint could quietly be un-closed back to IN_PROGRESS or RESOLVED, which would let "
+                + "the case get lost from whatever \"closed\" list or report someone was relying on. "
+                + "Reassigning or re-resolving before closing is fine (e.g. a customer disputes the first "
+                + "resolution) &mdash; only CLOSED itself is a one-way door.</li>"
+                + "<li>Closing a complaint that's already CLOSED, or acting on a complaint ID that doesn't "
+                + "exist at all &mdash; both rejected with a clear message instead of silently doing "
+                + "nothing.</li>"
+                + "<li>Assigning to a staff user ID that doesn't exist, or resolving with a blank resolution "
+                + "note &mdash; both caught with a clear message.</li>"
+                + "</ul>");
 
         // ------------------------------------------------------------------
         // 13. Notifications

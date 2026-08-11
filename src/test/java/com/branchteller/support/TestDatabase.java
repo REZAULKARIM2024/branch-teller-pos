@@ -395,6 +395,24 @@ public final class TestDatabase {
                     "paid_by INT NOT NULL, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // QA finding (fixed): same gap as cards/standing_*/external_transfers above --
+            // ComplaintService/ComplaintDAO have existed since early in the project, but the
+            // complaints table was never added to the shared test schema, so the Complaints
+            // feature could never have been integration-tested against a real database before
+            // this review. Columns mirror database/schema.sql's complaints table, ENUM columns
+            // narrowed to VARCHAR per this file's existing convention.
+            st.execute("CREATE TABLE complaints (" +
+                    "complaint_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "customer_id INT NOT NULL, " +
+                    "category VARCHAR(50) NOT NULL, " +
+                    "description VARCHAR(500) NOT NULL, " +
+                    "status VARCHAR(20) NOT NULL DEFAULT 'OPEN', " +
+                    "priority VARCHAR(10) NOT NULL DEFAULT 'MEDIUM', " +
+                    "assigned_to INT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "resolved_at TIMESTAMP NULL, " +
+                    "resolution_note VARCHAR(500))");
+
             st.execute("CREATE TABLE payroll_runs (" +
                     "run_id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "employee_id INT NOT NULL, " +

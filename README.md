@@ -96,7 +96,7 @@ flowchart TB
     DAO --> DB
 
     subgraph DevOps["Build, Test & Deploy"]
-        Tests["JUnit 5 + Cucumber + RestAssured + H2<br/>388 automated tests"]
+        Tests["JUnit 5 + Cucumber + RestAssured + H2<br/>450 automated tests"]
         CI["GitHub Actions CI<br/>mvn verify on every push"]
         Docker["Docker Compose<br/>mysql + api services"]
     end
@@ -323,7 +323,8 @@ Key tables in `branch_teller` (60+ total; grouped here by feature area):
 | Interest | `interest_accruals` |
 | General ledger | `gl_accounts`, `gl_journal`, `gl_entry_lines` |
 | Compliance | `aml_flags`, `approvals`, `complaints`, `regulatory_reports` |
-| Cards & instructions | `cards`, `standing_instructions` |
+| Cards & instructions | `cards`, `standing_instructions`, `standing_instruction_runs` |
+| Payments | `external_transfers`, `billers`, `bill_payments` |
 | Branches & staff | `branches`, `employees`, `payroll_runs` |
 | Platform | `users`, `notifications`, `credit_scores`, `payment_network_log` |
 
@@ -332,7 +333,7 @@ complete definitions.
 
 ## Testing
 
-388 automated tests across three engines, all run by a single command (and in CI on
+450 automated tests across three engines, all run by a single command (and in CI on
 every push via `.github/workflows/ci.yml`):
 
 ```bash
@@ -348,7 +349,7 @@ mvn verify
 | Web UI automation (Selenium) | `mvn test -Dgroups=web-automation` | Opt-in — needs `run_api_server.bat` + `run_frontend.bat` running first |
 | Desktop UI automation (AssertJ-Swing) | `mvn test -Dgroups=desktop-automation` | Opt-in — needs a display (or `xvfb-run` on headless Linux) |
 
-- **JUnit 5** (362 tests) — pure-logic unit tests (interest math, approval thresholds,
+- **JUnit 5** (424 tests) — pure-logic unit tests (interest math, approval thresholds,
   password hashing, role permissions), H2-backed integration tests (general ledger
   posting/trial-balance correctness, full deposit/withdraw/transfer/AML/approval/
   interest-accrual flows against an in-memory database), and real HTTP integration
@@ -356,8 +357,10 @@ mvn verify
   own dedicated integration test class (e.g. `CashDrawerIntegrationTest`,
   `ChequeIntegrationTest`, `LoanIntegrationTest`, `HoldIntegrationTest`,
   `CorrespondenceIntegrationTest`, `ProductsContentTest`, `BranchIntegrationTest`,
-  `ComplianceIntegrationTest`, `CreditScoreIntegrationTest`), each covering both the
-  happy path and the negative/rejection cases specific to that feature:
+  `ComplianceIntegrationTest`, `CreditScoreIntegrationTest`, `CardIntegrationTest`,
+  `StandingInstructionIntegrationTest`, `PaymentIntegrationTest`,
+  `ComplaintIntegrationTest`), each covering both the happy path and the
+  negative/rejection cases specific to that feature:
   - `BankingServiceValidationTest`, `PasswordUtilTest`, `UserPermissionTest` — pure/negative/data-driven
   - `AmlServiceTest`, `GlServicePostTest`, `GlDaoIntegrationTest` — self-contained H2 connections
   - `InterestServiceTest`, `ApprovalServiceTest` — `@ParameterizedTest` boundary sweeps
@@ -405,7 +408,7 @@ standard for that layer rather than one framework stretched to cover everything:
 `HealthAndCustomersApiTest` / `AccountAndTransactionApiTest` exercise it in
 given/when/then style with JSON-path assertions (`body("balance", equalTo("175.00"))`)
 instead of manual string parsing. Tagged `@Tag("api-automation")` and included in the
-default run, so it's part of the 388 tests that go green in CI on every push.
+default run, so it's part of the 450 tests that go green in CI on every push.
 
 **Web UI automation (Selenium + Page Object Model)** — `WebDriverFactory` launches
 headless Chrome (auto-managed by WebDriverManager, no chromedriver binary to hand-install),
@@ -585,7 +588,7 @@ database.
 `.github/workflows/ci.yml` runs on every push/PR to `main`:
 
 1. Checks out the repo and sets up JDK 17 (Temurin, with Maven dependency caching).
-2. Runs `mvn -B verify` — the full 388-test suite (JUnit 5 + Cucumber + RestAssured API
+2. Runs `mvn -B verify` — the full 450-test suite (JUnit 5 + Cucumber + RestAssured API
    automation) against H2, no MySQL service container needed. The Selenium and
    AssertJ-Swing automation suites are opt-in and don't run here yet — see
    [Test Automation Suite](#test-automation-suite).
